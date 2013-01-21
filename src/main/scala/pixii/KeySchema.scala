@@ -14,9 +14,9 @@ object KeySchema {
         .withAttributeName(hashKeyAttribute.name)
         .withAttributeType(hashKeyAttribute.conversion.attributeType.code)))
   }
-  
+
   case class HashAndRangeKeySchema[H, R](
-    hashKeyAttribute: NamedAttribute[H], 
+    hashKeyAttribute: NamedAttribute[H],
     rangeKeyAttribute: NamedAttribute[R]
   ) extends KeySchema[(H, R)] {
     val keySchema = (new dynamodb.model.KeySchema()

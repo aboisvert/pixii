@@ -8,20 +8,22 @@ import scala.collection.JavaConversions._
 abstract class MapAttributes[K, V](
   val prefix: String,
   val separator: Char = ':'
-)(implicit 
-  val keyConversion: AttributeNameConversion[K], 
+)(implicit
+  val keyConversion: AttributeNameConversion[K],
   val valueConversion: AttributeValueConversion[V]
 ) extends Attribute {
-  
+
   type ATTR = Map[K, V]
 
   private val fullPrefix = prefix + separator
+
   override def apply(value: Map[K, V]): Map[String, AttributeValue] = {
     for ((k, v) <- value; attributeValue <- valueConversion(v)) yield {
-      val attributeName = fullPrefix + keyConversion(k) 
+      val attributeName = fullPrefix + keyConversion(k)
       attributeName -> attributeValue
     }
   }
+
   override def unapply(item: Map[String, AttributeValue]): Option[Map[K, V]] = {
     val result = mutable.Map[K, V]()
     for ((attrName, attrValue) <- item) {
@@ -34,19 +36,20 @@ abstract class MapAttributes[K, V](
     }
     Some(result)
   }
+
   override def toString = "MapAttributes(prefix = '%s', separator = '%s')" format (prefix, separator)
 }
 
 trait AttributeNameConversion[T] {
   def apply(value: T): String
-  def unapply(s: String): T 
+  def unapply(s: String): T
 }
 
 object AttributeNameConversions {
   private def wrapException[T](f: => T) = {
     try { f } catch { case e: Exception => throw new ValidationException(e) }
   }
-  
+
   implicit object StringMapAttribute extends AttributeNameConversion[String] {
     override def apply(value: String) = value
     override def unapply(s: String) = s

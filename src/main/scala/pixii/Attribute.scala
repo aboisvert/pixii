@@ -37,25 +37,25 @@ object AttributeModifiers {
       unapply(item) getOrElse { throw new MissingAttributeException(this.toString, item) }
     }
   }
-  
+
   trait Nullable extends Attribute {
     override def get(item: Map[String, AttributeValue]) = unapply(item) getOrElse null.asInstanceOf[ATTR]
   }
-  
+
   trait Default extends Attribute {
     val defaultValue: ATTR
     override def apply(value: ATTR): Map[String, AttributeValue] = {
-      if (value != null) super.apply(value) else super.apply(defaultValue) 
+      if (value != null) super.apply(value) else super.apply(defaultValue)
     }
     override def get(item: Map[String, AttributeValue]) = unapply(item) getOrElse defaultValue
   }
-  
+
   trait SafeDefault extends Attribute {
     val safeValue: Option[ATTR]
     override def unapply(item: Map[String, AttributeValue]) = {
       try {
         super.unapply(item)
-      } catch { case e: Exception => 
+      } catch { case e: Exception =>
         safeValue
       }
     }

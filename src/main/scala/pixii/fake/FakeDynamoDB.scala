@@ -27,7 +27,7 @@ class FakeDynamo extends AmazonDynamoDB {
 
   def query(queryRequest: QueryRequest): QueryResult = {
     val table = getTable(queryRequest.getTableName)
-    table match { 
+    table match {
       case table: FakeTableWithHashRangeKey => table.queryItem(queryRequest)
       case _ => throw new AmazonServiceException("Table %s does not support query method" format queryRequest.getTableName)
     }
@@ -59,11 +59,11 @@ class FakeDynamo extends AmazonDynamoDB {
     if (_tables.isDefinedAt(name)) {
       throw new AmazonServiceException("Table already exists: " + name)
     }
-    if (createTableRequest.getKeySchema.getRangeKeyElement == null) { 
+    if (createTableRequest.getKeySchema.getRangeKeyElement == null) {
       _tables.getOrElseUpdate(name, new FakeTableWithHashKey(name, createTableRequest.getKeySchema))
     } else {
       _tables.getOrElseUpdate(name, new FakeTableWithHashRangeKey(name, createTableRequest.getKeySchema))
-    }    
+    }
     new CreateTableResult()
   }
 
@@ -111,7 +111,7 @@ abstract class FakeTable(val name: String, val keySchema: KeySchema) {
   def getItem(getItemRequest: GetItemRequest): GetItemResult
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult
-  
+
   def updateItem(updateItemRequest: UpdateItemRequest, item: mutable.Map[String, AttributeValue]): UpdateItemResult = {
     for ((attr, update) <- updateItemRequest.getAttributeUpdates) {
       val value = item.get(attr) getOrElse null
@@ -213,7 +213,7 @@ abstract class FakeTable(val name: String, val keySchema: KeySchema) {
     }
     new UpdateItemResult()
   }
-  
+
 }
 
 
@@ -269,11 +269,11 @@ class FakeTableWithHashRangeKey(name: String, keySchema: KeySchema) extends Fake
     )
     updateItem(updateItemRequest, item)
   }
-  
+
   def queryItem(queryRequest: QueryRequest): QueryResult = {
     val result = new QueryResult()
     val _items = items.getOrElse(queryRequest.getHashKeyValue, mutable.Map()).values
     result.withItems(_items map { m => m: java.util.Map[String, AttributeValue] })
-  }  
-    
+  }
+
 }

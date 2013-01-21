@@ -12,12 +12,12 @@ import scala.collection.JavaConversions._
 trait Table[T] {
   /** User-provided table name */
   val tableName: String
-  
+
   /** User-provided retry policy */
   val retryPolicy: RetryPolicy
-  
+
   /** User-provided DynamoDB client */
-  val dynamoDB: AmazonDynamoDB  
+  val dynamoDB: AmazonDynamoDB
 
   /** User-provided item mapper */
   val itemMapper: ItemMapper[T]
@@ -29,7 +29,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
   /** Convert key value into a dynamodb.model.Key */
   def toKey(k: K): Key
-  
+
   /** Retrieve value associated with given key */
   def apply(key: K)(implicit consistency: Consistency): Option[V] = {
     retryPolicy.retry("Table(%s).apply(%s)" format (tableName, key)) {
@@ -88,25 +88,25 @@ trait TableOperations[K,  V] { self: Table[V] =>
     evaluateItemPageLimit: Int = -1
   ): Iterator[V] = {
     val request = new ScanRequest().withTableName(tableName)
-    
+
     if (filter.nonEmpty) request.setScanFilter(filter)
-    
+
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
     else request.setLimit(1000)
-    
+
     def nextPage(exclusiveStartKey: Option[Key]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
       val response = dynamoDB.scan(request)
       (response.getItems, response.getLastEvaluatedKey)
     }
-    
+
     new Iterator[V] {
       private val iter = iterator("scanSelectedAttributes", nextPage)
       override def hasNext = iter.hasNext
       override def next: V = itemMapper.unapply(iter.next)
     }
   }
-  
+
   def scanSelectedAttributes[T](
     attributesToGet: Seq[String],
     itemMapper: Map[String, AttributeValue] => T,
@@ -116,12 +116,12 @@ trait TableOperations[K,  V] { self: Table[V] =>
     val request = (new ScanRequest()
       .withTableName(tableName)
       .withAttributesToGet(attributesToGet))
-      
+
     if (filter.nonEmpty) request.setScanFilter(filter)
-    
+
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
     else request.setLimit(1000)
-    
+
     def nextPage(exclusiveStartKey: Option[Key]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
       val response = dynamoDB.scan(request)
@@ -134,21 +134,21 @@ trait TableOperations[K,  V] { self: Table[V] =>
       override def next = itemMapper.apply(iter.next)
     }
   }
-  
+
   protected def iterator(
-    operationName: String, 
+    operationName: String,
     nextPage: Option[Key] => (java.util.List[java.util.Map[String, AttributeValue]], Key)
   ): Iterator[Map[String, AttributeValue]] = new Iterator[Map[String, AttributeValue]] {
     private var index = 0
     private var items: java.util.List[java.util.Map[String, AttributeValue]] = null
     private var morePages = true
     private var exclusiveStartKey: Option[Key] = None
-    
+
     override def hasNext = synchronized {
       if ((items == null || index >= items.size) && morePages) loadNextPage()
       (items != null && index < items.size)
     }
-    
+
     override def next(): Map[String, AttributeValue] = synchronized {
       if (!hasNext) throw new IllegalStateException("hasNext is false")
       val item = items.get(index)
@@ -168,7 +168,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
       }
     }
   }
-  
+
 
   def createTable(readCapacity: Long, writeCapacity: Long): Unit = {
     val provisionedThroughput = (new ProvisionedThroughput()
@@ -182,7 +182,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
     )
     dynamoDB.createTable(request)
   }
-  
+
   def deleteTable_!(): Unit = {
     val deleteTableRequest = new DeleteTableRequest().withTableName(tableName)
     dynamoDB.deleteTable(deleteTableRequest)
@@ -191,7 +191,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
 trait HashKeyTable[H, V] extends TableOperations[H, V] { self: Table[V] =>
   val hashKeyAttribute: NamedAttribute[H]
-  
+
   override lazy val schema = HashKeySchema[H](hashKeyAttribute)
   override def toKey(key: H): Key = new Key().withHashKeyElement(hashKeyAttribute(key).valuesIterator.next())
 }
@@ -216,7 +216,7 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
       .withConsistentRead(consistency.isConsistentRead))
 
     if (rangeKeyCondition != null) request.setRangeKeyCondition(rangeKeyCondition)
-    
+
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
     else request.setLimit(1000)
 
@@ -225,7 +225,7 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
       val response = dynamoDB.query(request)
       (response.getItems, response.getLastEvaluatedKey)
     }
-    
+
     new Iterator[V] {
       private val iter = iterator("query: " + hashKeyValue, nextPage)
       override def hasNext = iter.hasNext

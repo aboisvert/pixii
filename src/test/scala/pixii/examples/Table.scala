@@ -13,7 +13,7 @@ case class Foo(val s: String, val x: Int)
 trait FooTable extends Table[Foo] with HashKeyTable[String, Foo] {
   val s = new NamedAttribute[String]("s") with Required
   val x = new NamedAttribute[Int]("x") with Required
-  
+
   override val tableName = "MyTable"
   override val hashKeyAttribute = s
   override val itemMapper = new ItemMapper[Foo] {
@@ -24,11 +24,11 @@ trait FooTable extends Table[Foo] with HashKeyTable[String, Foo] {
       Foo(s.get(item), x.get(item))
     }
   }
-  
+
   def updateExample(foo: Foo) = {
     update(
-      key = foo.s, 
+      key = foo.s,
       attributeUpdates = UpdateConversions.put(x(foo.x))
     )
   }
-} 
+}

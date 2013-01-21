@@ -13,7 +13,7 @@ trait RetryPolicy {
 
 object RetryPolicy {
   class StopRetryingException(cause: Exception) extends RuntimeException(cause)
-  
+
   class RetrySilentlyException extends RuntimeException
 
   def dontRetryClientError[T](f: => T): T = {
@@ -48,15 +48,15 @@ class FibonacciBackoff(
     do {
       try {
         return RetryPolicy.dontRetryClientError(f)
-      } catch { 
-        case e: StopRetryingException => 
+      } catch {
+        case e: StopRetryingException =>
           log.error("Operation %s interrupted." format operation, e.getCause)
           throw e
 
         case e: Exception =>
           // fall through and retry
           lastException = e
-          if (!e.isInstanceOf[RetrySilentlyException]) {          
+          if (!e.isInstanceOf[RetrySilentlyException]) {
             log.warn("Exception during %s:\n%s: %s" format (operation, e.getClass.getName, Option(e.getMessage) getOrElse ""))
             log.warn("Sleeping " + backoff + "ms ...")
           }
@@ -66,6 +66,6 @@ class FibonacciBackoff(
       }
     } while (elapsed < limitMillis)
     log.error("Too many exception during %s; aborting" format operation, lastException)
-    throw lastException   
+    throw lastException
   }
 }
