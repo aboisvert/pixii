@@ -19,6 +19,17 @@ object UpdateConversions {
   /** `delete` alias for disambiguation with Table.delete */
   def deleteAttributes(attributes: Map[String, AttributeValue]) = delete(attributes)
 
+  /** Convert a set of attribute values into `delete` actions */
+  def delete(attribute: String): Map[String, AttributeValueUpdate] = convert(attribute, DELETE)
+
+  /** `delete` alias for disambiguation with Table.delete */
+  def deleteAttribute(attribute: String) = delete(attribute)
+
+  def delete(attributes: Seq[String]): Map[String, AttributeValueUpdate] = (attributes map delete) reduce (_ ++ _)
+
+  /** `delete` alias for disambiguation with Table.delete */
+  def deleteAttributes(attributes: Seq[String]): Map[String, AttributeValueUpdate] = delete(attributes)
+
   /** Convert a set of attribute values into `put` actions */
   def put(attributes: Map[String, AttributeValue]): Map[String, AttributeValueUpdate] = convert(attributes, PUT)
 
@@ -33,4 +44,10 @@ object UpdateConversions {
         .withValue(value))
     }
   }
+
+  /** Convert an attribute name into an action. e.g., delete an attribute regarless of its value. */
+  private def convert(attribute: String, action: AttributeAction): Map[String, AttributeValueUpdate] = {
+    Map(attribute -> (new AttributeValueUpdate().withAction(action)))
+  }
+
 }
