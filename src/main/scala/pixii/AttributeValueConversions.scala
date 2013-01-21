@@ -2,10 +2,13 @@ package pixii
 
 import com.amazonaws.services.dynamodb.model.AttributeValue
 
+import scala.collection._
+import scala.collection.JavaConversions._
+
 trait AttributeValueConversion[T] {
   val attributeType: AttributeType
   def apply(value: T): Option[AttributeValue]
-  def unapply(value: AttributeValue): T 
+  def unapply(value: AttributeValue): T
 }
 
 object AttributeValueConversions {
@@ -32,7 +35,25 @@ object AttributeValueConversions {
     override def apply(value: Option[T]): Option[AttributeValue] = value flatMap conversion.apply
     override def unapply(value: AttributeValue): Option[T] = Option(conversion.unapply(value))
   }
-  
+
+  implicit object IntSet extends AttributeValueConversion[Set[Int]] {
+    override val attributeType = AttributeTypes.NumberSet
+    override def apply(values: Set[Int]): Option[AttributeValue] = Some(new AttributeValue().withNS(values map (_.toString)))
+    override def unapply(value: AttributeValue): Set[Int] = value.getNS map (_.toInt) toSet
+  }
+
+  implicit object LongSet extends AttributeValueConversion[Set[Long]] {
+    override val attributeType = AttributeTypes.NumberSet
+    override def apply(values: Set[Long]): Option[AttributeValue] = Some(new AttributeValue().withNS(values map (_.toString)))
+    override def unapply(value: AttributeValue): Set[Long] = value.getNS map (_.toLong) toSet
+  }
+
+  implicit object StringSet extends AttributeValueConversion[Set[String]] {
+    override val attributeType = AttributeTypes.String
+    override def apply(values: Set[String]): Option[AttributeValue] = Some(new AttributeValue().withSS(values))
+    override def unapply(value: AttributeValue): Set[String] = value.getSS.toSet
+  }
+
   /**
    * Conversion for dates using a lexicographically comparable format specified by ISO8601.
    * @see http://en.wikipedia.org/wiki/ISO_8601
@@ -54,5 +75,5 @@ object AttributeValueConversions {
     override def unapply(value: AttributeValue) = format.parse(value.getS)
   }
 
-  
+
 }
