@@ -38,6 +38,18 @@ object AttributeModifiers {
     }
   }
 
+  trait Optional extends Attribute {
+    type ATTR <: Option[_]
+    override def apply(value: ATTR): Map[String, AttributeValue] = {
+      if (value == null) throw new RequiredAttributeCannotBeNullException(this.toString)
+      super.apply(value)
+    }
+
+    override def get(item: Map[String, AttributeValue]) = {
+      unapply(item) getOrElse { None.asInstanceOf[ATTR] }
+    }
+  }
+
   trait Nullable extends Attribute {
     override def get(item: Map[String, AttributeValue]) = unapply(item) getOrElse null.asInstanceOf[ATTR]
   }

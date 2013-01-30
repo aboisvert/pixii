@@ -21,13 +21,17 @@ object AttributeValueConversions {
   implicit object IntConversion extends AttributeValueConversion[Int] {
     override val attributeType = AttributeTypes.Number
     override def apply(value: Int) = Some(new AttributeValue().withN(value.toString))
-    override def unapply(value: AttributeValue) = value.getN.toInt
+    override def unapply(value: AttributeValue) = {
+      if (value.getN == null) null.asInstanceOf[Int] else value.getN.toInt
+    }
   }
 
   implicit object LongConversion extends AttributeValueConversion[Long] {
     override val attributeType = AttributeTypes.Number
     override def apply(value: Long) = Some(new AttributeValue().withN(value.toString))
-    override def unapply(value: AttributeValue) = value.getN.toLong
+    override def unapply(value: AttributeValue) = {
+      if (value.getN == null) null.asInstanceOf[Long] else value.getN.toLong
+    }
   }
 
   implicit def optionAttributeValueConversion[T](implicit conversion: AttributeValueConversion[T]) = new AttributeValueConversion[Option[T]] {
@@ -72,7 +76,9 @@ object AttributeValueConversions {
 
     override val attributeType = AttributeTypes.String
     override def apply(date:  Date) = Option(date) map { d => new AttributeValue().withS(format.format(d)) }
-    override def unapply(value: AttributeValue) = format.parse(value.getS)
+    override def unapply(value: AttributeValue) = {
+      if (value.getS == null) null.asInstanceOf[java.util.Date] else format.parse(value.getS)
+    }
   }
 
 

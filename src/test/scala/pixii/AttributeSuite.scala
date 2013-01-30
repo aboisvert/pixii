@@ -112,4 +112,32 @@ class AttributeSuite extends WordSpec with ShouldMatchers {
       withSafeDefault.get(attrs) should be === 42
     }
   }
+
+  "Optional mixing trait with Option[String]" should {
+    val optional = new NamedAttribute[Option[String]]("foo") with Optional
+
+    "return Some(string) if attribute is set" in {
+      val attrs = Map("foo" -> new AttributeValue().withS("bar"))
+      optional.get(attrs) should be === Some("bar")
+    }
+
+    "return None if attribute is not set" in {
+      val attrs = Map.empty[String, AttributeValue]
+      optional.get(attrs) should be === None
+    }
+  }
+
+  "Optional mixing trait with Option[Int]" should {
+    val optional = new NamedAttribute[Option[Int]]("foo") with Optional
+
+    "return Some(string) if attribute is set" in {
+      val attrs = Map("foo" -> new AttributeValue().withN("42"))
+      optional.get(attrs) should be === Some(42)
+    }
+
+    "return None if attribute is not set" in {
+      val attrs = Map.empty[String, AttributeValue]
+      optional.get(attrs) should be === None
+    }
+  }
 }
