@@ -51,7 +51,8 @@ class FakeDynamo extends AmazonDynamoDB {
   }
 
   def scan(scanRequest: ScanRequest): ScanResult = {
-    throw new UnsupportedOperationException
+    val table = getTable(scanRequest.getTableName)
+    table.scan(scanRequest)
   }
 
   def createTable(createTableRequest: CreateTableRequest): CreateTableResult = synchronized {
@@ -103,6 +104,19 @@ class FakeDynamo extends AmazonDynamoDB {
     _tables.get(name) getOrElse { throw new ResourceNotFoundException("Table not found: " + name) }
   }
 
+  def dump(): String = {
+    val buf = new StringBuilder
+    for (t <- _tables.values) {
+      t.dump(buf)
+    }
+    buf.toString
+  }
+
+  def dump(table: String): String = {
+    val buf = new StringBuilder
+    getTable(table).dump(buf)
+    buf.toString
+  }
 }
 
 
@@ -111,6 +125,8 @@ abstract class FakeTable(val name: String, val keySchema: KeySchema) {
   def getItem(getItemRequest: GetItemRequest): GetItemResult
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult
+  def scan(scanRequest: ScanRequest): ScanResult
+  def dump(buf: StringBuilder): Unit
 
   def updateItem(updateItemRequest: UpdateItemRequest, item: mutable.Map[String, AttributeValue]): UpdateItemResult = {
     for ((attr, update) <- updateItemRequest.getAttributeUpdates) {
@@ -213,7 +229,6 @@ abstract class FakeTable(val name: String, val keySchema: KeySchema) {
     }
     new UpdateItemResult()
   }
-
 }
 
 
@@ -238,6 +253,21 @@ class FakeTableWithHashKey(name: String, keySchema: KeySchema) extends FakeTable
       mutable.Map(keySchema.getHashKeyElement.getAttributeName -> key.getHashKeyElement)
     )
     updateItem(updateItemRequest, item)
+  }
+
+  def scan(scanRequest: ScanRequest): ScanResult = {
+    if (scanRequest.getScanFilter == null || scanRequest.getScanFilter.isEmpty()) {
+      (new ScanResult).withItems(asJavaCollection(items.values map mutableMapAsJavaMap))
+    } else {
+      sys.error("Scan with filter not yet supported")
+    }
+  }
+
+  def dump(buf: StringBuilder) = {
+    buf.append("FakeTableWithHashKey(%s, %s)\n" format (name, keySchema))
+    for (i <- items) {
+      buf.append("  " + i + "\n")
+    }
   }
 }
 
@@ -272,8 +302,23 @@ class FakeTableWithHashRangeKey(name: String, keySchema: KeySchema) extends Fake
 
   def queryItem(queryRequest: QueryRequest): QueryResult = {
     val result = new QueryResult()
-    val _items = items.getOrElse(queryRequest.getHashKeyValue, mutable.Map()).values
+    val _items = items.getOrElse(queryRequest.getHashKeyValue, mutable.Map()).values.toList
     result.withItems(_items map { m => m: java.util.Map[String, AttributeValue] })
+  }
+
+  def scan(scanRequest: ScanRequest): ScanResult = {
+    if (scanRequest.getScanFilter.isEmpty()) {
+      (new ScanResult).withItems(asJavaCollection(items.values.toList flatMap (_.values.toList) map mutableMapAsJavaMap))
+    } else {
+      sys.error("Scan with filter not yet supported")
+    }
+  }
+
+  def dump(buf: StringBuilder) = {
+    buf.append("FakeTableWithHashAndRangeKey(%s, %s)\n" format (name, keySchema))
+    for (i <- items) {
+      buf.append("  " + i + "\n")
+    }
   }
 
 }
