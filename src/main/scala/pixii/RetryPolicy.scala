@@ -19,9 +19,13 @@ object RetryPolicy {
   def dontRetryClientError[T](f: => T): T = {
     try {
       f
-    } catch { case e: AmazonServiceException if e.getErrorType == AmazonServiceException.ErrorType.Client
-                                                && !e.isInstanceOf[ProvisionedThroughputExceededException] =>
+    } catch {
+      case e: AmazonServiceException if e.getErrorType == AmazonServiceException.ErrorType.Client
+                                        && !e.isInstanceOf[ProvisionedThroughputExceededException] =>
         // no use retrying if the error is a client-side probllem
+        throw new StopRetryingException(e)
+
+      case e: ValidationException =>
         throw new StopRetryingException(e)
     }
   }
@@ -51,10 +55,11 @@ class FibonacciBackoff(
       } catch {
         case e: StopRetryingException =>
           log.error("Operation %s interrupted." format operation, e.getCause)
-          throw e
+          if (e.getCause != null) throw e.getCause else throw e
 
         case e: Exception =>
           // fall through and retry
+          // log.error("Exception during %s:\n%s: %s" format (operation, e.getClass.getName, Option(e.getMessage) getOrElse ""), e)
           lastException = e
           if (!e.isInstanceOf[RetrySilentlyException]) {
             log.warn("Exception during %s:\n%s: %s" format (operation, e.getClass.getName, Option(e.getMessage) getOrElse ""))
