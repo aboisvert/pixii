@@ -101,7 +101,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
     }
 
     new Iterator[V] {
-      private val iter = iterator("scanSelectedAttributes", nextPage)
+      private val iter = iterator("scan", nextPage)
       override def hasNext = iter.hasNext
       override def next: V = itemMapper.unapply(iter.next)
     }
