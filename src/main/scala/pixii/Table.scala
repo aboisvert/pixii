@@ -5,6 +5,7 @@ import pixii.KeySchema._
 import com.amazonaws.{AmazonClientException, AmazonServiceException}
 import com.amazonaws.services.dynamodb._
 import com.amazonaws.services.dynamodb.model._
+import com.amazonaws.services.dynamodb.model.{ TableStatus => AWSTableStatus }
 
 import scala.collection._
 import scala.collection.JavaConversions._
@@ -135,14 +136,105 @@ trait TableOperations[K,  V] { self: Table[V] =>
     }
   }
 
-  protected def iterator(
+  def getAll(keys: K*)(implicit consistency: Consistency): Iterator[V] = {
+    if (keys.isEmpty)
+      return Iterator.empty
+    val keysAndAttributes = (new KeysAndAttributes()
+      .withKeys(keys map toKey)
+      .withConsistentRead(consistency.isConsistentRead)
+    )
+    val request = (new BatchGetItemRequest()
+      .withRequestItems(mutable.Map(tableName -> keysAndAttributes))
+    )
+
+    def nextPage(remainingKeys: Option[java.util.List[Key]]) = {
+      if (remainingKeys.isDefined) keysAndAttributes.setKeys(remainingKeys.get)
+      val response = dynamoDB.batchGetItem(request)
+      val unprocessedKeys = response.getUnprocessedKeys.get(tableName)
+      (response.getResponses.get(tableName).getItems,
+        if (unprocessedKeys == null) null else unprocessedKeys.getKeys)
+    }
+
+    new Iterator[V] {
+      private val iter = iterator("getAll", nextPage)
+      override def hasNext = iter.hasNext
+      override def next: V = itemMapper.unapply(iter.next)
+    }
+  }
+
+  def putAll(values: V*): WriteSequence = {
+    putAll(values.iterator)
+  }
+
+  def putAll(values: Iterator[V]): WriteSequence = {
+    writeAll(values map (WriteOperation.Put[K, V](_)))
+  }
+
+  def deleteAll(keys: K*): WriteSequence = {
+    deleteAll(keys.iterator)
+  }
+
+  def deleteAll(keys: Iterator[K]): WriteSequence = {
+    writeAll(keys map (WriteOperation.Delete[K, V](_)))
+  }
+
+  def writeAll(operations: WriteOperation[K, V]*): WriteSequence = {
+    writeAll(operations.iterator)
+  }
+
+  def writeAll(operations: Iterator[WriteOperation[K, V]]): WriteSequence = {
+    if (operations.isEmpty)
+      return WriteSequence.empty
+    val requests = new java.util.ArrayList[WriteRequest]()
+    val request = (new BatchWriteItemRequest()
+      .withRequestItems(mutable.Map(tableName -> requests))
+    )
+
+    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: Iterator[WriteOperation[K, V]]) = {
+      val toAppend = remaining.take(25 - unprocessed.size).collect {
+        case WriteOperation.Put(value) =>
+          new WriteRequest().withPutRequest(new PutRequest().withItem(itemMapper(value)))
+        case WriteOperation.Delete(key) =>
+          new WriteRequest().withDeleteRequest(new DeleteRequest().withKey(toKey(key)))
+      }.toSeq
+      requests.clear()
+      requests.addAll(unprocessed)
+      requests.addAll(toAppend)
+      val response = dynamoDB.batchWriteItem(request)
+      val unprocessedItems = response.getUnprocessedItems().get(tableName)
+      if (unprocessedItems == null) {
+        (requests.size, java.util.Collections.emptyList[WriteRequest](), remaining drop toAppend.size)
+      } else
+        (requests.size - unprocessedItems.size, unprocessedItems, remaining drop toAppend.size)
+    }
+
+    new WriteSequence {
+
+      private var pending = operations
+      private var unprocessed = java.util.Collections.emptyList[WriteRequest]()
+      var completedOperations = 0
+      override def hasRemainingOperations = pending.nonEmpty || !unprocessed.isEmpty
+      override def submitMoreOperations() = {
+        if (!hasRemainingOperations) throw new NoSuchElementException
+        retryPolicy.retry("Table(%s).writeAll" format tableName) {
+          val (written, stillUnprocessed, stillPending) = nextSubmission(unprocessed, pending)
+          unprocessed = stillUnprocessed
+          pending = stillPending
+          written
+        }
+      }
+
+    }
+  }
+
+  protected def iterator[T](
     operationName: String,
-    nextPage: Option[Key] => (java.util.List[java.util.Map[String, AttributeValue]], Key)
+    nextPage: Option[T] => (java.util.List[java.util.Map[String, AttributeValue]], T)
   ): Iterator[Map[String, AttributeValue]] = new Iterator[Map[String, AttributeValue]] {
     private var index = 0
     private var items: java.util.List[java.util.Map[String, AttributeValue]] = null
     private var morePages = true
-    private var exclusiveStartKey: Option[Key] = None
+    private var exclusiveStartKey: Option[T] = None
 
     override def hasNext = synchronized {
       if ((items == null || index >= items.size) && morePages) loadNextPage()
@@ -169,6 +261,34 @@ trait TableOperations[K,  V] { self: Table[V] =>
     }
   }
 
+  def describeTable(): Option[TableDescription[K]] = {
+    try {
+      val request = new DescribeTableRequest().withTableName(tableName)
+      val response = dynamoDB.describeTable(request)
+      val table = response.getTable
+      val provisionedThroughput = table.getProvisionedThroughput
+      Some(TableDescription(
+        tableName,
+        schema,
+        AWSTableStatus.valueOf(table.getTableStatus) match {
+          case AWSTableStatus.CREATING => TableStatus.Creating
+          case AWSTableStatus.UPDATING => TableStatus.Updating
+          case AWSTableStatus.DELETING => TableStatus.Deleting
+          case AWSTableStatus.ACTIVE => TableStatus.Active
+        },
+        table.getCreationDateTime,
+        ProvisionedThroughputDescription(
+          provisionedThroughput.getLastIncreaseDateTime,
+          provisionedThroughput.getLastDecreaseDateTime,
+          provisionedThroughput.getNumberOfDecreasesToday,
+          provisionedThroughput.getReadCapacityUnits,
+          provisionedThroughput.getWriteCapacityUnits),
+        table.getTableSizeBytes,
+        table.getItemCount))
+    } catch {
+      case e: ResourceNotFoundException => None
+    }
+  }
 
   def createTable(readCapacity: Long, writeCapacity: Long): Unit = {
     val provisionedThroughput = (new ProvisionedThroughput()
@@ -181,6 +301,18 @@ trait TableOperations[K,  V] { self: Table[V] =>
       .withProvisionedThroughput(provisionedThroughput)
     )
     dynamoDB.createTable(request)
+  }
+
+  def updateTable(readCapacity: Long, writeCapacity: Long): Unit = {
+    val provisionedThroughput = (new ProvisionedThroughput()
+      .withReadCapacityUnits(readCapacity)
+      .withWriteCapacityUnits(writeCapacity)
+    )
+    val request = (new UpdateTableRequest()
+      .withTableName(tableName)
+      .withProvisionedThroughput(provisionedThroughput)
+    )
+    dynamoDB.updateTable(request)
   }
 
   def deleteTable_!(): Unit = {
@@ -231,5 +363,52 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
       override def hasNext = iter.hasNext
       override def next: V = itemMapper.unapply(iter.next)
     }
+  }
+}
+
+case class TableDescription[K](
+  tableName: String,
+  keySchema: KeySchema[K],
+  tableStatus: TableStatus,
+  creationDateTime: java.util.Date,
+  provisionedThroughput: ProvisionedThroughputDescription,
+  tableSizeBytes: Long,
+  itemCount: Long)
+
+case class ProvisionedThroughputDescription(
+  lastIncreaseDateTime: java.util.Date,
+  lastDecreaseDateTime: java.util.Date,
+  numberOfDecreasesToday: Long,
+  readCapacityUnits: Long,
+  writeCapacityUnits: Long)
+
+sealed abstract class TableStatus
+
+object TableStatus {
+  case object Creating extends TableStatus
+  case object Updating extends TableStatus
+  case object Deleting extends TableStatus
+  case object Active extends TableStatus
+}
+
+sealed abstract class WriteOperation[+K, +V]
+
+object WriteOperation {
+  case class Put[K, V](value: V) extends WriteOperation[K, V]
+  case class Delete[K, V](key: K) extends WriteOperation[K, V]
+}
+
+trait WriteSequence {
+  def completedOperations: Int
+  def hasRemainingOperations: Boolean
+  def submitMoreOperations(): Int
+}
+
+object WriteSequence {
+  val empty = new WriteSequence {
+    override def completedOperations = 0
+    override def hasRemainingOperations = false
+    override def submitMoreOperations(): Int =
+      throw new NoSuchElementException
   }
 }

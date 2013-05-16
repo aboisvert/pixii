@@ -2,6 +2,7 @@ package pixii.fake
 
 import com.amazonaws._
 import com.amazonaws.auth._
+import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodb._
 import com.amazonaws.services.dynamodb.model._
 
@@ -12,20 +13,25 @@ import scala.collection.mutable.ArrayBuffer
 class FakeDynamo extends AmazonDynamoDB {
 
   var _endpoint: String = _
+  var _region: Region = _
 
   private val _tables = mutable.Map[String, FakeTable]()
 
   // PUBLIC API
 
-  def setEndpoint(endpoint: String) {
+  override def setRegion(region: Region) {
+    _region = region
+  }
+  
+  override def setEndpoint(endpoint: String) {
     this._endpoint = endpoint
   }
 
-  def listTables(listTablesRequest: ListTablesRequest): ListTablesResult = synchronized {
+  override def listTables(listTablesRequest: ListTablesRequest): ListTablesResult = synchronized {
     new ListTablesResult().withTableNames(_tables.keySet)
   }
 
-  def query(queryRequest: QueryRequest): QueryResult = {
+  override def query(queryRequest: QueryRequest): QueryResult = {
     val table = getTable(queryRequest.getTableName)
     table match {
       case table: FakeTableWithHashRangeKey => table.queryItem(queryRequest)
@@ -33,70 +39,104 @@ class FakeDynamo extends AmazonDynamoDB {
     }
   }
 
-  def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): BatchWriteItemResult = {
-    throw new UnsupportedOperationException
+  override def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): BatchWriteItemResult = synchronized {
+    val requests: Map[String, java.util.List[WriteRequest]] = batchWriteItemRequest.getRequestItems
+    val responses = mutable.Map[String, BatchWriteResponse]()
+    for ((tableName, writeRequests) <- requests) {
+      val table = getTable(tableName)
+      for (request <- writeRequests) {
+        if (request.getPutRequest != null) {
+          table.putItem(new PutItemRequest().withItem(request.getPutRequest.getItem))
+        } else if (request.getDeleteRequest != null) {
+          table.deleteItem(new DeleteItemRequest().withKey(request.getDeleteRequest.getKey))
+        }
+      }
+      responses += tableName -> new BatchWriteResponse()
+    }
+    new BatchWriteItemResult().withResponses(responses)
   }
 
-  def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = synchronized {
+  override def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = synchronized {
     val table = getTable(updateItemRequest.getTableName)
     table.updateItem(updateItemRequest)
   }
 
-  def putItem(putItemRequest: PutItemRequest): PutItemResult = {
-    throw new UnsupportedOperationException
+  override def putItem(putItemRequest: PutItemRequest): PutItemResult = synchronized {
+    val table = getTable(putItemRequest.getTableName)
+    table.putItem(putItemRequest)
   }
 
-  def describeTable(describeTableRequest: DescribeTableRequest): DescribeTableResult = {
-    throw new UnsupportedOperationException
+  override def describeTable(describeTableRequest: DescribeTableRequest): DescribeTableResult = synchronized {
+    val table = getTable(describeTableRequest.getTableName)
+    new DescribeTableResult().withTable(table.describe(TableStatus.ACTIVE))
   }
 
-  def scan(scanRequest: ScanRequest): ScanResult = {
+  override def scan(scanRequest: ScanRequest): ScanResult = {
     val table = getTable(scanRequest.getTableName)
     table.scan(scanRequest)
   }
 
-  def createTable(createTableRequest: CreateTableRequest): CreateTableResult = synchronized {
+  override def createTable(createTableRequest: CreateTableRequest): CreateTableResult = synchronized {
     val name = createTableRequest.getTableName
     if (_tables.isDefinedAt(name)) {
       throw new AmazonServiceException("Table already exists: " + name)
     }
-    if (createTableRequest.getKeySchema.getRangeKeyElement == null) {
-      _tables.getOrElseUpdate(name, new FakeTableWithHashKey(name, createTableRequest.getKeySchema))
-    } else {
-      _tables.getOrElseUpdate(name, new FakeTableWithHashRangeKey(name, createTableRequest.getKeySchema))
-    }
-    new CreateTableResult()
+    val table =
+      if (createTableRequest.getKeySchema.getRangeKeyElement == null) {
+        val table = new FakeTableWithHashKey(
+          name, createTableRequest.getKeySchema, createTableRequest.getProvisionedThroughput)
+        _tables.getOrElseUpdate(name, table)
+        table
+      } else {
+        val table = new FakeTableWithHashRangeKey(
+          name, createTableRequest.getKeySchema, createTableRequest.getProvisionedThroughput)
+        _tables.getOrElseUpdate(name, table)
+        table
+      }
+    new CreateTableResult().withTableDescription(table.describe(TableStatus.CREATING))
   }
 
-  def updateTable(updateTableRequest: UpdateTableRequest): UpdateTableResult = {
-    throw new UnsupportedOperationException
+  override def updateTable(updateTableRequest: UpdateTableRequest): UpdateTableResult = synchronized {
+    val table = getTable(updateTableRequest.getTableName)
+    table.provisionedThroughput = updateTableRequest.getProvisionedThroughput
+    new UpdateTableResult().withTableDescription(table.describe(TableStatus.UPDATING))
   }
 
-  def deleteTable(deleteTableRequest: DeleteTableRequest): DeleteTableResult = {
-    throw new UnsupportedOperationException
+  override def deleteTable(deleteTableRequest: DeleteTableRequest): DeleteTableResult = synchronized {
+    val table = getTable(deleteTableRequest.getTableName)
+    new DeleteTableResult().withTableDescription(table.describe(TableStatus.DELETING))
   }
 
-  def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
+  override def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = synchronized {
     val table = getTable(deleteItemRequest.getTableName)
     table.deleteItem(deleteItemRequest)
   }
 
-  def getItem(getItemRequest: GetItemRequest): GetItemResult = synchronized {
+  override def getItem(getItemRequest: GetItemRequest): GetItemResult = synchronized {
     val table = getTable(getItemRequest.getTableName)
     table.getItem(getItemRequest)
   }
 
-  def batchGetItem(batchGetItemRequest: BatchGetItemRequest): BatchGetItemResult = {
-    throw new UnsupportedOperationException
+  override def batchGetItem(batchGetItemRequest: BatchGetItemRequest): BatchGetItemResult = synchronized {
+    val requests: Map[String, KeysAndAttributes] = batchGetItemRequest.getRequestItems
+    val responses = mutable.Map[String, BatchResponse]()
+    for ((tableName, keysAndAttributes) <- requests) {
+      val table = getTable(tableName)
+      val items = for (key <- keysAndAttributes.getKeys) yield {
+        table.getItem(new GetItemRequest().withKey(key)).getItem()
+      }
+      responses += tableName -> new BatchResponse().withItems(items)
+    }
+    new BatchGetItemResult().withResponses(responses)
   }
 
-  def listTables(): ListTablesResult = {
-    throw new UnsupportedOperationException
+  override def listTables(): ListTablesResult = synchronized {
+    new ListTablesResult().withTableNames(_tables.keySet)
   }
 
-  def shutdown(): Unit = ()
+  override def shutdown(): Unit = ()
 
-  def getCachedResponseMetadata(request: AmazonWebServiceRequest): ResponseMetadata = {
+  override def getCachedResponseMetadata(request: AmazonWebServiceRequest): ResponseMetadata = {
     throw new UnsupportedOperationException
   }
 
@@ -119,10 +159,13 @@ class FakeDynamo extends AmazonDynamoDB {
   }
 }
 
-
-
-abstract class FakeTable(val name: String, val keySchema: KeySchema) {
+abstract class FakeTable(
+  val name: String,
+  val keySchema: KeySchema,
+  var provisionedThroughput: ProvisionedThroughput) {
+  val creationDateTime = new java.util.Date
   def getItem(getItemRequest: GetItemRequest): GetItemResult
+  def putItem(putItemRequest: PutItemRequest): PutItemResult
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult
   def scan(scanRequest: ScanRequest): ScanResult
@@ -229,16 +272,39 @@ abstract class FakeTable(val name: String, val keySchema: KeySchema) {
     }
     new UpdateItemResult()
   }
+
+  def describe(status: TableStatus): TableDescription =
+    new TableDescription()
+      .withTableName(name)
+      .withKeySchema(keySchema)
+      .withTableStatus(status)
+      .withCreationDateTime(creationDateTime)
+      .withProvisionedThroughput(
+        new ProvisionedThroughputDescription()
+          .withReadCapacityUnits(provisionedThroughput.getReadCapacityUnits)
+          .withWriteCapacityUnits(provisionedThroughput.getWriteCapacityUnits))
+
 }
 
-
-class FakeTableWithHashKey(name: String, keySchema: KeySchema) extends FakeTable(name, keySchema) {
+class FakeTableWithHashKey(
+  name: String,
+  keySchema: KeySchema,
+  provisionedThroughput: ProvisionedThroughput)
+  extends FakeTable(name, keySchema, provisionedThroughput) {
   val items = mutable.Map[Key, mutable.Map[String, AttributeValue]]()
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
     val item = items.get(key) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
     new GetItemResult().withItem(item)
+  }
+
+  def putItem(putItemRequest: PutItemRequest): PutItemResult = {
+    val key = new Key(putItemRequest.getItem.get(keySchema.getHashKeyElement.getAttributeName))
+    val item = items.getOrElseUpdate(key, mutable.Map())
+    item.clear()
+    item ++= putItemRequest.getItem
+    new PutItemResult()
   }
 
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
@@ -269,9 +335,17 @@ class FakeTableWithHashKey(name: String, keySchema: KeySchema) extends FakeTable
       buf.append("  " + i + "\n")
     }
   }
+
+  override def describe(status: TableStatus): TableDescription =
+    super.describe(status).withItemCount(items.size)
+
 }
 
-class FakeTableWithHashRangeKey(name: String, keySchema: KeySchema) extends FakeTable(name, keySchema) {
+class FakeTableWithHashRangeKey(
+  name: String,
+  keySchema: KeySchema,
+  provisionedThroughput: ProvisionedThroughput)
+  extends FakeTable(name, keySchema, provisionedThroughput) {
   val items = mutable.Map[AttributeValue, mutable.Map[AttributeValue, mutable.Map[String, AttributeValue]]]()
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
@@ -279,6 +353,14 @@ class FakeTableWithHashRangeKey(name: String, keySchema: KeySchema) extends Fake
     val range = items.get(key.getHashKeyElement) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
     val item = range.get(key.getRangeKeyElement) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
     new GetItemResult().withItem(item)
+  }
+
+  def putItem(putItemRequest: PutItemRequest): PutItemResult = {
+    val range = items.getOrElseUpdate(putItemRequest.getItem.get(keySchema.getHashKeyElement.getAttributeName), mutable.Map())
+    val item = range.getOrElseUpdate(putItemRequest.getItem.get(keySchema.getRangeKeyElement.getAttributeName), mutable.Map())
+    item.clear()
+    item ++= putItemRequest.getItem
+    new PutItemResult()
   }
 
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
@@ -320,5 +402,8 @@ class FakeTableWithHashRangeKey(name: String, keySchema: KeySchema) extends Fake
       buf.append("  " + i + "\n")
     }
   }
+
+  override def describe(status: TableStatus): TableDescription =
+    super.describe(status).withItemCount(items.values.map(_.size).sum)
 
 }
