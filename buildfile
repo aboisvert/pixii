@@ -20,14 +20,14 @@ SLF4J = [
 ]
 LOG4J = "log4j:log4j:jar:1.2.15"
 
-AWS_SDK = 'com.amazonaws:aws-java-sdk:jar:1.3.25'
+AWS_SDK = 'com.amazonaws:aws-java-sdk:jar:1.4.3'
 
 desc 'Scala bindings for Amazon\'s DynamoDB'
 define "pixii_#{Buildr::Scala.version}" do
   project.version = VERSION_NUMBER
   project.group = "pixii"
 
-  project.scalac_options.incremental = true
+  project.scalac_options.incremental = false
 
   compile.with AWS_SDK #, HTTPCORE, HTTPCLIENT, CODEC, COMMONSLOG
   compile.using :deprecation => true,

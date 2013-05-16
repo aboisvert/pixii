@@ -2,6 +2,7 @@ package pixii.fake
 
 import com.amazonaws._
 import com.amazonaws.auth._
+import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodb._
 import com.amazonaws.services.dynamodb.model._
 
@@ -12,20 +13,25 @@ import scala.collection.mutable.ArrayBuffer
 class FakeDynamo extends AmazonDynamoDB {
 
   var _endpoint: String = _
+  var _region: Region = _
 
   private val _tables = mutable.Map[String, FakeTable]()
 
   // PUBLIC API
 
-  def setEndpoint(endpoint: String) {
+  override def setRegion(region: Region) {
+    _region = region
+  }
+  
+  override def setEndpoint(endpoint: String) {
     this._endpoint = endpoint
   }
 
-  def listTables(listTablesRequest: ListTablesRequest): ListTablesResult = synchronized {
+  override def listTables(listTablesRequest: ListTablesRequest): ListTablesResult = synchronized {
     new ListTablesResult().withTableNames(_tables.keySet)
   }
 
-  def query(queryRequest: QueryRequest): QueryResult = {
+  override def query(queryRequest: QueryRequest): QueryResult = {
     val table = getTable(queryRequest.getTableName)
     table match {
       case table: FakeTableWithHashRangeKey => table.queryItem(queryRequest)
@@ -33,7 +39,7 @@ class FakeDynamo extends AmazonDynamoDB {
     }
   }
 
-  def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): BatchWriteItemResult = synchronized {
+  override def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): BatchWriteItemResult = synchronized {
     val requests: Map[String, java.util.List[WriteRequest]] = batchWriteItemRequest.getRequestItems
     val responses = mutable.Map[String, BatchWriteResponse]()
     for ((tableName, writeRequests) <- requests) {
@@ -50,27 +56,27 @@ class FakeDynamo extends AmazonDynamoDB {
     new BatchWriteItemResult().withResponses(responses)
   }
 
-  def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = synchronized {
+  override def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = synchronized {
     val table = getTable(updateItemRequest.getTableName)
     table.updateItem(updateItemRequest)
   }
 
-  def putItem(putItemRequest: PutItemRequest): PutItemResult = synchronized {
+  override def putItem(putItemRequest: PutItemRequest): PutItemResult = synchronized {
     val table = getTable(putItemRequest.getTableName)
     table.putItem(putItemRequest)
   }
 
-  def describeTable(describeTableRequest: DescribeTableRequest): DescribeTableResult = synchronized {
+  override def describeTable(describeTableRequest: DescribeTableRequest): DescribeTableResult = synchronized {
     val table = getTable(describeTableRequest.getTableName)
     new DescribeTableResult().withTable(table.describe(TableStatus.ACTIVE))
   }
 
-  def scan(scanRequest: ScanRequest): ScanResult = {
+  override def scan(scanRequest: ScanRequest): ScanResult = {
     val table = getTable(scanRequest.getTableName)
     table.scan(scanRequest)
   }
 
-  def createTable(createTableRequest: CreateTableRequest): CreateTableResult = synchronized {
+  override def createTable(createTableRequest: CreateTableRequest): CreateTableResult = synchronized {
     val name = createTableRequest.getTableName
     if (_tables.isDefinedAt(name)) {
       throw new AmazonServiceException("Table already exists: " + name)
@@ -90,28 +96,28 @@ class FakeDynamo extends AmazonDynamoDB {
     new CreateTableResult().withTableDescription(table.describe(TableStatus.CREATING))
   }
 
-  def updateTable(updateTableRequest: UpdateTableRequest): UpdateTableResult = synchronized {
+  override def updateTable(updateTableRequest: UpdateTableRequest): UpdateTableResult = synchronized {
     val table = getTable(updateTableRequest.getTableName)
     table.provisionedThroughput = updateTableRequest.getProvisionedThroughput
     new UpdateTableResult().withTableDescription(table.describe(TableStatus.UPDATING))
   }
 
-  def deleteTable(deleteTableRequest: DeleteTableRequest): DeleteTableResult = synchronized {
+  override def deleteTable(deleteTableRequest: DeleteTableRequest): DeleteTableResult = synchronized {
     val table = getTable(deleteTableRequest.getTableName)
     new DeleteTableResult().withTableDescription(table.describe(TableStatus.DELETING))
   }
 
-  def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = synchronized {
+  override def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = synchronized {
     val table = getTable(deleteItemRequest.getTableName)
     table.deleteItem(deleteItemRequest)
   }
 
-  def getItem(getItemRequest: GetItemRequest): GetItemResult = synchronized {
+  override def getItem(getItemRequest: GetItemRequest): GetItemResult = synchronized {
     val table = getTable(getItemRequest.getTableName)
     table.getItem(getItemRequest)
   }
 
-  def batchGetItem(batchGetItemRequest: BatchGetItemRequest): BatchGetItemResult = synchronized {
+  override def batchGetItem(batchGetItemRequest: BatchGetItemRequest): BatchGetItemResult = synchronized {
     val requests: Map[String, KeysAndAttributes] = batchGetItemRequest.getRequestItems
     val responses = mutable.Map[String, BatchResponse]()
     for ((tableName, keysAndAttributes) <- requests) {
@@ -124,13 +130,13 @@ class FakeDynamo extends AmazonDynamoDB {
     new BatchGetItemResult().withResponses(responses)
   }
 
-  def listTables(): ListTablesResult = synchronized {
+  override def listTables(): ListTablesResult = synchronized {
     new ListTablesResult().withTableNames(_tables.keySet)
   }
 
-  def shutdown(): Unit = ()
+  override def shutdown(): Unit = ()
 
-  def getCachedResponseMetadata(request: AmazonWebServiceRequest): ResponseMetadata = {
+  override def getCachedResponseMetadata(request: AmazonWebServiceRequest): ResponseMetadata = {
     throw new UnsupportedOperationException
   }
 
