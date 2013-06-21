@@ -150,9 +150,8 @@ trait TableOperations[K,  V] { self: Table[V] =>
     def nextPage(remainingKeys: Option[java.util.List[Key]]) = {
       if (remainingKeys.isDefined) keysAndAttributes.setKeys(remainingKeys.get)
       val response = dynamoDB.batchGetItem(request)
-      val unprocessedKeys = response.getUnprocessedKeys.get(tableName)
-      (response.getResponses.get(tableName).getItems,
-        if (unprocessedKeys == null) null else unprocessedKeys.getKeys)
+      val unprocessedKeys = Option(response.getUnprocessedKeys) flatMap (m => Option(m.get(tableName)))
+      (response.getResponses.get(tableName).getItems, unprocessedKeys map (_.getKeys) orNull)
     }
 
     new Iterator[V] {
@@ -201,11 +200,11 @@ trait TableOperations[K,  V] { self: Table[V] =>
       requests.addAll(unprocessed)
       requests.addAll(toAppend)
       val response = dynamoDB.batchWriteItem(request)
-      val unprocessedItems = response.getUnprocessedItems().get(tableName)
-      if (unprocessedItems == null) {
+      val unprocessedItems = Option(response.getUnprocessedItems()) flatMap (m => Option(m.get(tableName)))
+      if (unprocessedItems.isEmpty) {
         (requests.size, java.util.Collections.emptyList[WriteRequest](), remaining drop toAppend.size)
       } else
-        (requests.size - unprocessedItems.size, unprocessedItems, remaining drop toAppend.size)
+        (requests.size - unprocessedItems.get.size, unprocessedItems.get, remaining drop toAppend.size)
     }
 
     new WriteSequence {
@@ -218,6 +217,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
         if (!hasRemainingOperations) throw new NoSuchElementException
         retryPolicy.retry("Table(%s).writeAll" format tableName) {
           val (written, stillUnprocessed, stillPending) = nextSubmission(unprocessed, pending)
+          completedOperations += written
           unprocessed = stillUnprocessed
           pending = stillPending
           written
