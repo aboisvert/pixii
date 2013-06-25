@@ -1,6 +1,6 @@
 <ivy-module version="1.1">
 
-    <info organisation="pixii" module="pixii_2.10.1"/>
+    <info organisation="pixii" module="pixii_2.10"/>
 
     <configurations>
       <conf name="default" description="core dependencies needed at compile-time and runtime" />
