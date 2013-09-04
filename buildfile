@@ -20,7 +20,7 @@ SLF4J = [
 ]
 LOG4J = "log4j:log4j:jar:1.2.15"
 
-AWS_SDK = 'com.amazonaws:aws-java-sdk:jar:1.4.3'
+AWS_SDK = 'com.amazonaws:aws-java-sdk:jar:1.5.5'
 
 desc 'Scala bindings for Amazon\'s DynamoDB'
 define "pixii_#{Buildr::Scala.version}" do
