@@ -1,3 +1,12 @@
+0.0.3 (2013-06-24)
+==================
+
+* Upgrade to aws-java-sdk:jar:1.4.3
+
+* Fixed bugs related to the handling of unprocessed items returned from batch
+  operations. [Lonnie Pryor / Pull Request #2]
+
+
 0.0.2 (2013-05-16)
 ==================
 

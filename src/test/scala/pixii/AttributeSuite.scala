@@ -3,7 +3,7 @@ package pixii
 import pixii.AttributeModifiers._
 import pixii.AttributeValueConversions._
 
-import com.amazonaws.services.dynamodb.model.AttributeValue
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import org.scalatest.WordSpec
 import org.scalatest.matchers.ShouldMatchers
 
