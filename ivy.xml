@@ -16,7 +16,7 @@
 
     <dependencies defaultconfmapping="sources->sources();buildtime->provided(),default(),master();default->default(),master(),runtime();%->default;" defaultconf="default,sources">
        <!-- global (compile, test, runtime) dependencies -->
-      <dependency org="amazon" name="aws-java-sdk" rev="1.4.3" />
+      <dependency org="amazon" name="aws-java-sdk" rev="1.5.5" />
 
       <!-- compile -->
       <dependency org="scala" name="scala" rev="2.9.1.final" conf="buildtime->compiler"/>
