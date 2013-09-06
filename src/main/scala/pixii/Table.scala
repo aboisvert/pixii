@@ -31,8 +31,6 @@ trait Table[T] {
 trait TableOperations[K,  V] { self: Table[V] =>
   /** Table's key schema */
   val schema: KeySchema[K]
-  
-  val parallelQueryResult = new ArrayBuffer[Iterator[V]] with SynchronizedBuffer[Iterator[V]] 
 
   /** Convert key value into a dynamodb.model.Key */
   def toKey(k: K): Map[String, AttributeValue]

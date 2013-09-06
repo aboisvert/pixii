@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ivy-report.xsl"?>
+<ivy-report version="1.0">
+	<info
+		organisation="pixii"
+		module="pixii_2.9.1"
+		revision="working@Bills-Work-MacBook-Pro.local"
+		conf="javadocs"
+		confs="default, buildtime, test, sources, javadocs"
+		date="20130904121134"/>
+	<dependencies>
+	</dependencies>
+</ivy-report>

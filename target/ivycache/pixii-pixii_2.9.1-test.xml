@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ivy-report.xsl"?>
+<ivy-report version="1.0">
+	<info
+		organisation="pixii"
+		module="pixii_2.9.1"
+		revision="working@Bills-Work-MacBook-Pro.local"
+		conf="test"
+		confs="default, buildtime, test, sources, javadocs"
+		date="20130904121134"/>
+	<dependencies>
+		<module organisation="scalatest" name="scalatest_2.9.1">
+			<revision name="2.0.M4" status="integration" pubdate="20130830121352" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="default" position="1">
+				<metadata-artifact status="no" details="" size="691" time="0" location="/Users/billkuang/bizo/ivycache/scalatest/scalatest_2.9.1/ivy-2.0.M4.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/scalatest/scalatest_2.9.1/ivy-2.0.M4.xml"/>
+				<caller organisation="pixii" name="pixii_2.9.1" conf="test" rev="2.0.M4" rev-constraint-default="2.0.M4" rev-constraint-dynamic="2.0.M4" callerrev="working@Bills-Work-MacBook-Pro.local"/>
+				<artifacts>
+					<artifact name="scalatest_2.9.1" type="jar" ext="jar" status="no" details="" size="3840928" time="0" location="/Users/billkuang/bizo/ivycache/scalatest/scalatest_2.9.1/jars/scalatest_2.9.1-2.0.M4.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/scalatest/scalatest_2.9.1/jars/scalatest_2.9.1-2.0.M4.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="scala" name="scala">
+			<revision name="2.9.1.final" status="release" pubdate="20130816102553" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="default" position="2">
+				<license name="Scala License (BSD variant)" url="http://www.scala-lang.org/node/146"/>
+				<metadata-artifact status="no" details="" size="934" time="0" location="/Users/billkuang/bizo/ivycache/scala/scala/ivy-2.9.1.final.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/scala/scala/ivy-2.9.1.final.xml"/>
+				<caller organisation="scalatest" name="scalatest_2.9.1" conf="default" rev="2.9.1.final" rev-constraint-default="2.9.1.final" rev-constraint-dynamic="2.9.1.final" callerrev="2.0.M4"/>
+				<artifacts>
+					<artifact name="scala-library" type="jar" ext="jar" status="no" details="" size="8842990" time="0" location="/Users/billkuang/bizo/ivycache/scala/scala/jars/scala-library-2.9.1.final.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/scala/scala/jars/scala-library-2.9.1.final.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="junit" name="junit">
+			<revision name="4.8.2" status="integration" pubdate="20130808111541" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="default" position="0">
+				<license name="Common Public License - v 1.0" url="http://junit.sourceforge.net/cpl-v10.html"/>
+				<metadata-artifact status="no" details="" size="1065" time="0" location="/Users/billkuang/bizo/ivycache/junit/junit/ivy-4.8.2.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/junit/junit/ivy-4.8.2.xml"/>
+				<caller organisation="pixii" name="pixii_2.9.1" conf="test" rev="4.8.2" rev-constraint-default="4.8.2" rev-constraint-dynamic="4.8.2" callerrev="working@Bills-Work-MacBook-Pro.local"/>
+				<artifacts>
+					<artifact name="junit" type="jar" ext="jar" status="no" details="" size="237344" time="0" location="/Users/billkuang/bizo/ivycache/junit/junit/jars/junit-4.8.2.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/junit/junit/jars/junit-4.8.2.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+	</dependencies>
+</ivy-report>

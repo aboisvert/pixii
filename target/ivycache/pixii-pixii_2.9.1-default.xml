@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ivy-report.xsl"?>
+<ivy-report version="1.0">
+	<info
+		organisation="pixii"
+		module="pixii_2.9.1"
+		revision="working@Bills-Work-MacBook-Pro.local"
+		conf="default"
+		confs="default, buildtime, test, sources, javadocs"
+		date="20130904121134"/>
+	<dependencies>
+		<module organisation="amazon" name="aws-java-sdk">
+			<revision name="1.5.5" status="release" pubdate="20130903152440" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="default, runtime(), default(), master()" position="0">
+				<license name="Apache License Version 2.0" url="http://www.apache.org/licenses/LICENSE-2.0.html"/>
+				<metadata-artifact status="no" details="" size="1805" time="0" location="/Users/billkuang/bizo/ivycache/amazon/aws-java-sdk/ivy-1.5.5.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/amazon/aws-java-sdk/ivy-1.5.5.xml"/>
+				<caller organisation="pixii" name="pixii_2.9.1" conf="default" rev="1.5.5" rev-constraint-default="1.5.5" rev-constraint-dynamic="1.5.5" callerrev="working@Bills-Work-MacBook-Pro.local"/>
+				<artifacts>
+					<artifact name="aws-java-sdk" type="jar" ext="jar" status="no" details="" size="10430588" time="0" location="/Users/billkuang/bizo/ivycache/amazon/aws-java-sdk/jars/aws-java-sdk-1.5.5.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/amazon/aws-java-sdk/jars/aws-java-sdk-1.5.5.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="sun" name="javamail">
+			<revision name="1.4.3" status="integration" pubdate="20130731155552" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="default" position="8">
+				<metadata-artifact status="no" details="" size="594" time="0" location="/Users/billkuang/bizo/ivycache/sun/javamail/ivy-1.4.3.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/sun/javamail/ivy-1.4.3.xml"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="1.4.3" rev-constraint-default="1.4.3" rev-constraint-dynamic="1.4.3" callerrev="1.5.5"/>
+				<artifacts>
+					<artifact name="mail" type="jar" ext="jar" status="no" details="" size="462097" time="0" location="/Users/billkuang/bizo/ivycache/sun/javamail/jars/mail-1.4.3.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/sun/javamail/jars/mail-1.4.3.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="stax" name="stax-api">
+			<revision name="1.0.1" status="release" pubdate="20130731155551" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="true" conf="default" position="7">
+				<metadata-artifact status="no" details="" size="398" time="0" location="/Users/billkuang/bizo/ivycache/stax/stax-api/ivy-1.0.1.xml" searched="false" origin-is-local="false" origin-location="UNKNOWN"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="1.0.1" rev-constraint-default="1.0.1" rev-constraint-dynamic="1.0.1" callerrev="1.5.5"/>
+				<artifacts>
+					<artifact name="stax-api" type="jar" ext="jar" status="no" details="" size="26514" time="0" location="/Users/billkuang/bizo/ivycache/stax/stax-api/jars/stax-api-1.0.1.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/stax/stax-api/jars/stax-api-1.0.1.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="stax" name="stax">
+			<revision name="1.2.0" status="release" pubdate="20130731155551" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="true" conf="default" position="6">
+				<metadata-artifact status="no" details="" size="390" time="0" location="/Users/billkuang/bizo/ivycache/stax/stax/ivy-1.2.0.xml" searched="false" origin-is-local="false" origin-location="UNKNOWN"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="1.2.0" rev-constraint-default="1.2.0" rev-constraint-dynamic="1.2.0" callerrev="1.5.5"/>
+				<artifacts>
+					<artifact name="stax" type="jar" ext="jar" status="no" details="" size="179346" time="0" location="/Users/billkuang/bizo/ivycache/stax/stax/jars/stax-1.2.0.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/stax/stax/jars/stax-1.2.0.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="jackson" name="jackson">
+			<revision name="1.9.11" status="integration" pubdate="20130731155551" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="default, mapper" position="5">
+				<license name="Apache Software License 2.0" url="http://jackson.codehaus.org/"/>
+				<metadata-artifact status="no" details="" size="1252" time="0" location="/Users/billkuang/bizo/ivycache/jackson/jackson/ivy-1.9.11.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/jackson/jackson/ivy-1.9.11.xml"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="1.9.11" rev-constraint-default="1.9.11" rev-constraint-dynamic="1.9.11" callerrev="1.5.5"/>
+				<artifacts>
+					<artifact name="jackson-core-asl" type="jar" ext="jar" status="no" details="" size="232131" time="0" location="/Users/billkuang/bizo/ivycache/jackson/jackson/jars/jackson-core-asl-1.9.11.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/jackson/jackson/jars/jackson-core-asl-1.9.11.jar"/>
+					</artifact>
+					<artifact name="jackson-mapper-asl" type="jar" ext="jar" status="no" details="" size="780421" time="0" location="/Users/billkuang/bizo/ivycache/jackson/jackson/jars/jackson-mapper-asl-1.9.11.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/jackson/jackson/jars/jackson-mapper-asl-1.9.11.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="apache" name="httpcomponents-client">
+			<revision name="4.2.3" status="release" pubdate="20130731155601" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="true" conf="default" position="1">
+				<metadata-artifact status="no" details="" size="1010" time="0" location="/Users/billkuang/bizo/ivycache/apache/httpcomponents-client/ivy-4.2.3.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/apache/httpcomponents-client/ivy-4.2.3.xml"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="4.2.3" rev-constraint-default="4.2.3" rev-constraint-dynamic="4.2.3" callerrev="1.5.5"/>
+				<artifacts>
+					<artifact name="httpclient" type="jar" ext="jar" status="no" details="" size="433070" time="0" location="/Users/billkuang/bizo/ivycache/apache/httpcomponents-client/jars/httpclient-4.2.3.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/apache/httpcomponents-client/jars/httpclient-4.2.3.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="apache" name="commons-codec">
+			<revision name="1.6" status="integration" pubdate="20130731155602" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="default" position="4">
+				<metadata-artifact status="no" details="" size="735" time="0" location="/Users/billkuang/bizo/ivycache/apache/commons-codec/ivy-1.6.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/apache/commons-codec/ivy-1.6.xml"/>
+				<caller organisation="apache" name="httpcomponents-client" conf="default" rev="1.6" rev-constraint-default="1.6" rev-constraint-dynamic="1.6" callerrev="4.2.3"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="1.3" rev-constraint-default="1.3" rev-constraint-dynamic="1.3" callerrev="1.5.5"/>
+				<artifacts>
+					<artifact name="commons-codec" type="jar" ext="jar" status="no" details="" size="232771" time="0" location="/Users/billkuang/bizo/ivycache/apache/commons-codec/jars/commons-codec-1.6.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/apache/commons-codec/jars/commons-codec-1.6.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+			<revision name="1.3" status="release" pubdate="20130731155549" resolver="bizo-s3" artresolver="bizo-s3" evicted="ivyde-latest-revision" evicted-reason="" downloaded="false" searched="false" default="true" conf="default" position="-1">
+				<metadata-artifact status="no" details="" size="408" time="0" location="/Users/billkuang/bizo/ivycache/apache/commons-codec/ivy-1.3.xml" searched="false" origin-is-local="false" origin-location="UNKNOWN"/>
+				<evicted-by rev="1.6"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="1.3" rev-constraint-default="1.3" rev-constraint-dynamic="1.3" callerrev="1.5.5"/>
+				<artifacts>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="apache" name="commons-logging">
+			<revision name="1.1.1" status="release" pubdate="20130731155641" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="true" conf="default" position="3">
+				<metadata-artifact status="no" details="" size="414" time="0" location="/Users/billkuang/bizo/ivycache/apache/commons-logging/ivy-1.1.1.xml" searched="false" origin-is-local="false" origin-location="UNKNOWN"/>
+				<caller organisation="apache" name="httpcomponents-client" conf="default" rev="1.1.1" rev-constraint-default="1.1.1" rev-constraint-dynamic="1.1.1" callerrev="4.2.3"/>
+				<caller organisation="amazon" name="aws-java-sdk" conf="default" rev="1.1.1" rev-constraint-default="1.1.1" rev-constraint-dynamic="1.1.1" callerrev="1.5.5"/>
+				<artifacts>
+					<artifact name="commons-logging" type="jar" ext="jar" status="no" details="" size="60841" time="0" location="/Users/billkuang/bizo/ivycache/apache/commons-logging/jars/commons-logging-1.1.1.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/apache/commons-logging/jars/commons-logging-1.1.1.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+		<module organisation="apache" name="httpcomponents-core">
+			<revision name="4.2.3" status="release" pubdate="20130731155601" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="true" conf="default" position="2">
+				<metadata-artifact status="no" details="" size="755" time="0" location="/Users/billkuang/bizo/ivycache/apache/httpcomponents-core/ivy-4.2.3.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/apache/httpcomponents-core/ivy-4.2.3.xml"/>
+				<caller organisation="apache" name="httpcomponents-client" conf="default" rev="4.2.3" rev-constraint-default="4.2.3" rev-constraint-dynamic="4.2.3" callerrev="4.2.3"/>
+				<artifacts>
+					<artifact name="httpcore" type="jar" ext="jar" status="no" details="" size="227208" time="0" location="/Users/billkuang/bizo/ivycache/apache/httpcomponents-core/jars/httpcore-4.2.3.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/apache/httpcomponents-core/jars/httpcore-4.2.3.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+	</dependencies>
+</ivy-report>
