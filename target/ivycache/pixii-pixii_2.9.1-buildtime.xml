@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ivy-report.xsl"?>
+<ivy-report version="1.0">
+	<info
+		organisation="pixii"
+		module="pixii_2.9.1"
+		revision="working@Bills-Work-MacBook-Pro.local"
+		conf="buildtime"
+		confs="default, buildtime, test, sources, javadocs"
+		date="20130911105233"/>
+	<dependencies>
+		<module organisation="scala" name="scala">
+			<revision name="2.9.1.final" status="release" pubdate="20130816102553" resolver="bizo-s3" artresolver="bizo-s3" downloaded="false" searched="false" default="false" conf="compiler" position="0">
+				<license name="Scala License (BSD variant)" url="http://www.scala-lang.org/node/146"/>
+				<metadata-artifact status="no" details="" size="934" time="0" location="/Users/billkuang/bizo/ivycache/scala/scala/ivy-2.9.1.final.xml" searched="false" origin-is-local="false" origin-location="s3://com-bizo-repository/scala/scala/ivy-2.9.1.final.xml"/>
+				<caller organisation="pixii" name="pixii_2.9.1" conf="buildtime" rev="2.9.1.final" rev-constraint-default="2.9.1.final" rev-constraint-dynamic="2.9.1.final" callerrev="working@Bills-Work-MacBook-Pro.local"/>
+				<artifacts>
+					<artifact name="scala-library" type="jar" ext="jar" status="no" details="" size="8842990" time="0" location="/Users/billkuang/bizo/ivycache/scala/scala/jars/scala-library-2.9.1.final.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/scala/scala/jars/scala-library-2.9.1.final.jar"/>
+					</artifact>
+					<artifact name="scala-compiler" type="jar" ext="jar" status="no" details="" size="11309625" time="0" location="/Users/billkuang/bizo/ivycache/scala/scala/jars/scala-compiler-2.9.1.final.jar">
+						<origin-location is-local="false" location="s3://com-bizo-repository/scala/scala/jars/scala-compiler-2.9.1.final.jar"/>
+					</artifact>
+				</artifacts>
+			</revision>
+		</module>
+	</dependencies>
+</ivy-report>

@@ -1,14 +1,15 @@
 package pixii.fake
 
 import com.amazonaws._
-import com.amazonaws.auth._
 import com.amazonaws.regions.Region
-import com.amazonaws.services.dynamodb._
-import com.amazonaws.services.dynamodb.model._
+import com.amazonaws.services.dynamodbv2._
+import com.amazonaws.services.dynamodbv2.model._
 
 import scala.collection._
 import scala.collection.JavaConversions._
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.JavaConverters._
+
+import pixii.KeyTypes
 
 class FakeDynamo extends AmazonDynamoDB {
 
@@ -41,7 +42,7 @@ class FakeDynamo extends AmazonDynamoDB {
 
   override def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): BatchWriteItemResult = synchronized {
     val requests: Map[String, java.util.List[WriteRequest]] = batchWriteItemRequest.getRequestItems
-    val responses = mutable.Map[String, BatchWriteResponse]()
+    val responses = mutable.ArrayBuffer[ConsumedCapacity]()
     for ((tableName, writeRequests) <- requests) {
       val table = getTable(tableName)
       for (request <- writeRequests) {
@@ -51,9 +52,9 @@ class FakeDynamo extends AmazonDynamoDB {
           table.deleteItem(new DeleteItemRequest().withKey(request.getDeleteRequest.getKey))
         }
       }
-      responses += tableName -> new BatchWriteResponse()
+      responses += new ConsumedCapacity().withTableName(tableName)
     }
-    new BatchWriteItemResult().withResponses(responses)
+    new BatchWriteItemResult().withConsumedCapacity(responses)
   }
 
   override def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = synchronized {
@@ -82,7 +83,7 @@ class FakeDynamo extends AmazonDynamoDB {
       throw new AmazonServiceException("Table already exists: " + name)
     }
     val table =
-      if (createTableRequest.getKeySchema.getRangeKeyElement == null) {
+      if (createTableRequest.getKeySchema().filter(_.getKeyType == KeyTypes.Range.code).size == 0) {
         val table = new FakeTableWithHashKey(
           name, createTableRequest.getKeySchema, createTableRequest.getProvisionedThroughput)
         _tables.getOrElseUpdate(name, table)
@@ -119,13 +120,13 @@ class FakeDynamo extends AmazonDynamoDB {
 
   override def batchGetItem(batchGetItemRequest: BatchGetItemRequest): BatchGetItemResult = synchronized {
     val requests: Map[String, KeysAndAttributes] = batchGetItemRequest.getRequestItems
-    val responses = mutable.Map[String, BatchResponse]()
+    val responses = mutable.Map[String, java.util.List[java.util.Map[String, AttributeValue]]]()
     for ((tableName, keysAndAttributes) <- requests) {
       val table = getTable(tableName)
       val items = for (key <- keysAndAttributes.getKeys) yield {
         table.getItem(new GetItemRequest().withKey(key)).getItem()
       }
-      responses += tableName -> new BatchResponse().withItems(items)
+      responses += tableName -> items
     }
     new BatchGetItemResult().withResponses(responses)
   }
@@ -161,7 +162,7 @@ class FakeDynamo extends AmazonDynamoDB {
 
 abstract class FakeTable(
   val name: String,
-  val keySchema: KeySchema,
+  val keySchema: java.util.List[KeySchemaElement],
   var provisionedThroughput: ProvisionedThroughput) {
   val creationDateTime = new java.util.Date
   def getItem(getItemRequest: GetItemRequest): GetItemResult
@@ -288,10 +289,10 @@ abstract class FakeTable(
 
 class FakeTableWithHashKey(
   name: String,
-  keySchema: KeySchema,
+  keySchema: java.util.List[KeySchemaElement],
   provisionedThroughput: ProvisionedThroughput)
   extends FakeTable(name, keySchema, provisionedThroughput) {
-  val items = mutable.Map[Key, mutable.Map[String, AttributeValue]]()
+  val items = mutable.Map[Map[String, AttributeValue], mutable.Map[String, AttributeValue]]()
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
@@ -300,7 +301,7 @@ class FakeTableWithHashKey(
   }
 
   def putItem(putItemRequest: PutItemRequest): PutItemResult = {
-    val key = new Key(putItemRequest.getItem.get(keySchema.getHashKeyElement.getAttributeName))
+    val key = putItemRequest.getItem
     val item = items.getOrElseUpdate(key, mutable.Map())
     item.clear()
     item ++= putItemRequest.getItem
@@ -315,8 +316,9 @@ class FakeTableWithHashKey(
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
     val key = updateItemRequest.getKey
+    val hashKeySchemaElement = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0)
     val item: mutable.Map[String, AttributeValue] = items.getOrElseUpdate(key,
-      mutable.Map(keySchema.getHashKeyElement.getAttributeName -> key.getHashKeyElement)
+      mutable.Map(hashKeySchemaElement.getAttributeName -> key(KeyTypes.Hash.code))
     )
     updateItem(updateItemRequest, item)
   }
@@ -343,21 +345,21 @@ class FakeTableWithHashKey(
 
 class FakeTableWithHashRangeKey(
   name: String,
-  keySchema: KeySchema,
+  keySchema: java.util.List[KeySchemaElement],
   provisionedThroughput: ProvisionedThroughput)
   extends FakeTable(name, keySchema, provisionedThroughput) {
   val items = mutable.Map[AttributeValue, mutable.Map[AttributeValue, mutable.Map[String, AttributeValue]]]()
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
-    val range = items.get(key.getHashKeyElement) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
-    val item = range.get(key.getRangeKeyElement) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+    val range = items.get(key(KeyTypes.Hash.code)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+    val item = range.get(key(KeyTypes.Range.code)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
     new GetItemResult().withItem(item)
   }
 
   def putItem(putItemRequest: PutItemRequest): PutItemResult = {
-    val range = items.getOrElseUpdate(putItemRequest.getItem.get(keySchema.getHashKeyElement.getAttributeName), mutable.Map())
-    val item = range.getOrElseUpdate(putItemRequest.getItem.get(keySchema.getRangeKeyElement.getAttributeName), mutable.Map())
+    val range = items.getOrElseUpdate(putItemRequest.getItem.get(keySchema.filter(_.getKeyType() == KeyTypes.Hash.code).get(0).getAttributeName), mutable.Map())
+    val item = range.getOrElseUpdate(putItemRequest.getItem.get(keySchema.filter(_.getKeyType() == KeyTypes.Range.code).get(0).getAttributeName), mutable.Map())
     item.clear()
     item ++= putItemRequest.getItem
     new PutItemResult()
@@ -365,18 +367,18 @@ class FakeTableWithHashRangeKey(
 
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
     val key = deleteItemRequest.getKey
-    val range = items.get(key.getHashKeyElement) getOrElse { return new DeleteItemResult() }
-    val item = range.remove(key.getRangeKeyElement) getOrElse { return new DeleteItemResult() }
+    val range = items.get(key(KeyTypes.Hash.code)) getOrElse { return new DeleteItemResult() }
+    val item = range.remove(key(KeyTypes.Range.code)) getOrElse { return new DeleteItemResult() }
     new DeleteItemResult().withAttributes(item)
   }
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
     val key = updateItemRequest.getKey
-    val range = items.getOrElseUpdate(key.getHashKeyElement, mutable.Map())
-    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key.getRangeKeyElement,
+    val range = items.getOrElseUpdate(key(KeyTypes.Hash.code), mutable.Map())
+    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key(KeyTypes.Range.code),
       mutable.Map(
-        keySchema.getHashKeyElement.getAttributeName -> key.getHashKeyElement,
-        keySchema.getRangeKeyElement.getAttributeName -> key.getRangeKeyElement
+        keySchema.filter(_.getKeyType() == KeyTypes.Hash.code).get(0).getAttributeName -> key(KeyTypes.Hash.code),
+        keySchema.filter(_.getKeyType() == KeyTypes.Hash.code).get(0).getAttributeName -> key(KeyTypes.Range.code)
       )
     )
     updateItem(updateItemRequest, item)
@@ -384,13 +386,14 @@ class FakeTableWithHashRangeKey(
 
   def queryItem(queryRequest: QueryRequest): QueryResult = {
     val result = new QueryResult()
-    val _items = items.getOrElse(queryRequest.getHashKeyValue, mutable.Map()).values.toList
-    result.withItems(_items map { m => m: java.util.Map[String, AttributeValue] })
+    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(KeyTypes.Hash.code, new Condition())
+    val _items = items.getOrElse(hashKeyConditions.getAttributeValueList().iterator().next(), mutable.Map()).values.toList
+    result.withItems(_items.asJava map { _.asJava })
   }
 
   def scan(scanRequest: ScanRequest): ScanResult = {
     if (scanRequest.getScanFilter.isEmpty()) {
-      (new ScanResult).withItems(asJavaCollection(items.values.toList flatMap (_.values.toList) map mutableMapAsJavaMap))
+      new ScanResult().withItems(items.values.toList.asJava flatMap (_.values.toList) map mutableMapAsJavaMap)
     } else {
       sys.error("Scan with filter not yet supported")
     }
