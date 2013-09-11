@@ -393,7 +393,7 @@ class FakeTableWithHashRangeKey(
 
   def scan(scanRequest: ScanRequest): ScanResult = {
     if (scanRequest.getScanFilter.isEmpty()) {
-      new ScanResult().withItems(items.values.toList.asJava flatMap (_.values.toList) map mutableMapAsJavaMap)
+      new ScanResult().withItems(items.values.toList.asJava flatMap { _.values.toList } map mutableMapAsJavaMap)
     } else {
       sys.error("Scan with filter not yet supported")
     }
