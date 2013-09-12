@@ -316,9 +316,9 @@ class FakeTableWithHashKey(
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
     val key = updateItemRequest.getKey
-    val hashKeySchemaElement = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0)
+    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
     val item: mutable.Map[String, AttributeValue] = items.getOrElseUpdate(key,
-      mutable.Map(hashKeySchemaElement.getAttributeName -> key(KeyTypes.Hash.code))
+      mutable.Map(hashKey -> key(hashKey))
     )
     updateItem(updateItemRequest, item)
   }
@@ -352,8 +352,10 @@ class FakeTableWithHashRangeKey(
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
-    val range = items.get(key(KeyTypes.Hash.code)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
-    val item = range.get(key(KeyTypes.Range.code)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
+    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
+    val range = items.get(key(hashKey)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+    val item = range.get(key(rangeKey)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
     new GetItemResult().withItem(item)
   }
 
@@ -367,18 +369,22 @@ class FakeTableWithHashRangeKey(
 
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
     val key = deleteItemRequest.getKey
-    val range = items.get(key(KeyTypes.Hash.code)) getOrElse { return new DeleteItemResult() }
-    val item = range.remove(key(KeyTypes.Range.code)) getOrElse { return new DeleteItemResult() }
+    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
+    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
+    val range = items.get(key(hashKey)) getOrElse { return new DeleteItemResult() }
+    val item = range.remove(key(rangeKey)) getOrElse { return new DeleteItemResult() }
     new DeleteItemResult().withAttributes(item)
   }
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
     val key = updateItemRequest.getKey
-    val range = items.getOrElseUpdate(key(KeyTypes.Hash.code), mutable.Map())
-    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key(KeyTypes.Range.code),
+    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
+    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
+    val range = items.getOrElseUpdate(key(hashKey), mutable.Map())
+    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key(rangeKey),
       mutable.Map(
-        keySchema.filter(_.getKeyType() == KeyTypes.Hash.code).get(0).getAttributeName -> key(KeyTypes.Hash.code),
-        keySchema.filter(_.getKeyType() == KeyTypes.Hash.code).get(0).getAttributeName -> key(KeyTypes.Range.code)
+        hashKey -> key(hashKey),
+        rangeKey -> key(rangeKey)
       )
     )
     updateItem(updateItemRequest, item)
