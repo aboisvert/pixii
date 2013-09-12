@@ -3,8 +3,7 @@ package pixii
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.dynamodb.model._
-import java.util.concurrent.{Executors, TimeUnit}
-import scala.collection._
+import java.util.concurrent.TimeUnit
 
 /** Plugagable retry policy */
 trait RetryPolicy {
