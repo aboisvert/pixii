@@ -1,6 +1,6 @@
 package pixii
 
-import com.amazonaws.services.dynamodb.model._
+import com.amazonaws.services.dynamodbv2.model._
 import scala.collection._
 
 /** User-provided conversion to/from attributes values */

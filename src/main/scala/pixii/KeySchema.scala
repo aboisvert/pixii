@@ -1,30 +1,34 @@
 package pixii
 
-import com.amazonaws.services.dynamodb
+import com.amazonaws.services.dynamodbv2.model.KeySchemaElement
 
 sealed trait KeySchema[K] {
-  val keySchema: dynamodb.model.KeySchema
+  val keySchema: List[KeySchemaElement]
 }
 
 /** Enumeration of DynamoDB key schema types */
 object KeySchema {
   case class HashKeySchema[H](hashKeyAttribute: NamedAttribute[H]) extends KeySchema[H] {
-    val keySchema = (new dynamodb.model.KeySchema()
-      .withHashKeyElement(new dynamodb.model.KeySchemaElement()
-        .withAttributeName(hashKeyAttribute.name)
-        .withAttributeType(hashKeyAttribute.conversion.attributeType.code)))
+    val keySchema = 
+      List[KeySchemaElement](
+        new KeySchemaElement()
+          .withAttributeName(hashKeyAttribute.name)
+          .withKeyType(KeyTypes.Hash.code)
+      )
   }
 
   case class HashAndRangeKeySchema[H, R](
     hashKeyAttribute: NamedAttribute[H],
     rangeKeyAttribute: NamedAttribute[R]
   ) extends KeySchema[(H, R)] {
-    val keySchema = (new dynamodb.model.KeySchema()
-      .withHashKeyElement(new dynamodb.model.KeySchemaElement()
-        .withAttributeName(hashKeyAttribute.name)
-        .withAttributeType(hashKeyAttribute.conversion.attributeType.code))
-      .withRangeKeyElement(new dynamodb.model.KeySchemaElement()
-        .withAttributeName(rangeKeyAttribute.name)
-        .withAttributeType(rangeKeyAttribute.conversion.attributeType.code)))
+    val keySchema = 
+      List[KeySchemaElement](
+          new KeySchemaElement()
+            .withAttributeName(hashKeyAttribute.name)
+            .withKeyType(KeyTypes.Hash.code),
+          new KeySchemaElement()
+            .withAttributeName(rangeKeyAttribute.name)
+            .withKeyType(KeyTypes.Range.code)
+      )
   }
 }

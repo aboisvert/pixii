@@ -5,7 +5,7 @@ import pixii.AttributeModifiers._
 import pixii.AttributeValueConversions._
 import pixii.KeySchema._
 
-import com.amazonaws.services.dynamodb.model.{AttributeValue, Key}
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import scala.collection._
 
 case class Foo(val s: String, val x: Int)
