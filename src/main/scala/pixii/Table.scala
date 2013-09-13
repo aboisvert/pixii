@@ -31,8 +31,6 @@ trait Table[T] {
 trait TableOperations[K,  V] { self: Table[V] =>
   /** Table's key schema */
   val schema: KeySchema[K]
-  
-  val parallelQueryResult = new ArrayBuffer[Iterator[V]] with SynchronizedBuffer[Iterator[V]] 
 
   /** Convert key value into a dynamodb.model.Key */
   def toKey(k: K): Map[String, AttributeValue]
@@ -89,26 +87,26 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
   // TODO:  queryCount()
   // TODO:  scanCount()
-    
+
   def parallelScan(
-      segment: Int, 
+      segment: Int,
       totalSegments: Int,
-      filter: Map[String, Condition], 
+      filter: Map[String, Condition],
       evaluateItemPageLimit: Int
   ): Iterator[V] = {
     val request = new ScanRequest().withTableName(tableName).withTotalSegments(totalSegments).withSegment(segment)
-    
+
     if (filter.nonEmpty) request.setScanFilter(filter)
-    
+
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
     else request.setLimit(1000)
-    
+
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
       val response = dynamoDB.scan(request)
       (response.getItems, response.getLastEvaluatedKey)
     }
-    
+
     new Iterator[V] {
       private val iter = iterator("scan", nextPage)
       override def hasNext = iter.hasNext
@@ -372,14 +370,14 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
     rangeKeyCondition: Condition = null,
     evaluateItemPageLimit: Int = -1
   )(implicit consistency: Consistency): Iterator[V] = {
-    val hashKeyCondition = 
+    val hashKeyCondition =
       new Condition()
         .withAttributeValueList(hashKeyAttribute(hashKeyValue).valuesIterator.next())
         .withComparisonOperator(ComparisonOperator.EQ)
-    val keyConditions = { 
-      if (rangeKeyCondition != null) 
+    val keyConditions = {
+      if (rangeKeyCondition != null)
         Map[String, Condition](KeyTypes.Hash.code -> hashKeyCondition, KeyTypes.Range.code -> rangeKeyCondition)
-      else 
+      else
         Map[String, Condition](KeyTypes.Hash.code -> hashKeyCondition)
     }
     val request = (new QueryRequest()

@@ -1,7 +1,5 @@
 package pixii
 
-import AttributeValueConversions._
-
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import scala.collection._
 import scala.collection.JavaConversions._
