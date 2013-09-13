@@ -1,9 +1,7 @@
 package pixii
 
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
-import pixii.AttributeValueConversions._
 import scala.collection._
-import scala.collection.JavaConversions._
 
 abstract class MapAttributes[K, V](
   val prefix: String,
