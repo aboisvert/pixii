@@ -1,6 +1,7 @@
 package pixii
 
-import com.amazonaws.services.dynamodbv2.model.AttributeValue
+import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, AttributeValue}
+
 import scala.collection._
 import scala.collection.JavaConversions._
 
@@ -10,6 +11,8 @@ trait Attribute {
   def unapply(item: Map[String, AttributeValue]): Option[ATTR] = sys.error("must be overriden")
 
   def get(item: Map[String, AttributeValue]): ATTR
+
+  def attributeDefinition: AttributeDefinition
 }
 
 abstract class NamedAttribute[T](val name: String)(implicit val conversion: AttributeValueConversion[T]) extends Attribute {
@@ -20,6 +23,7 @@ abstract class NamedAttribute[T](val name: String)(implicit val conversion: Attr
   }
   override def unapply(item: Map[String, AttributeValue]): Option[T] = item.get(name) map conversion.unapply
   override def toString = "NamedAttribute(%s)" format name
+  override val attributeDefinition = new AttributeDefinition().withAttributeName(name).withAttributeType(conversion.attributeType.code)
 }
 
 

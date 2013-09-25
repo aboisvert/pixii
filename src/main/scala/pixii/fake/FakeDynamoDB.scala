@@ -23,7 +23,7 @@ class FakeDynamo extends AmazonDynamoDB {
   override def setRegion(region: Region) {
     _region = region
   }
-  
+
   override def setEndpoint(endpoint: String) {
     this._endpoint = endpoint
   }

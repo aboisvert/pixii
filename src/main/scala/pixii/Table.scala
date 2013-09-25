@@ -85,6 +85,18 @@ trait TableOperations[K,  V] { self: Table[V] =>
     }
   }
 
+  def updateAndReturnValues(key: K, attributeUpdates: Map[String, AttributeValueUpdate], returnValue: ReturnValue): Map[String, AttributeValue] = {
+    retryPolicy.retry("Table(%s).update(%s)" format (tableName, key)) {
+      val request = (new UpdateItemRequest()
+        .withTableName(tableName)
+        .withKey(toKey(key))
+        .withAttributeUpdates(attributeUpdates))
+        .withReturnValues(returnValue)
+      val response = dynamoDB.updateItem(request)
+      response.getAttributes
+    }
+  }
+
   // TODO:  queryCount()
   // TODO:  scanCount()
 
@@ -325,9 +337,11 @@ trait TableOperations[K,  V] { self: Table[V] =>
       .withReadCapacityUnits(readCapacity)
       .withWriteCapacityUnits(writeCapacity)
     )
+
     val request = (new CreateTableRequest()
       .withTableName(tableName)
       .withKeySchema(schema.keySchema)
+      .withAttributeDefinitions(schema.attributeDefinitions)
       .withProvisionedThroughput(provisionedThroughput)
     )
     dynamoDB.createTable(request)
