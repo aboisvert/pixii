@@ -2,7 +2,7 @@ package pixii
 
 
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.services.dynamodb.model._
+import com.amazonaws.services.dynamodbv2.model._
 import java.util.concurrent.TimeUnit
 
 /** Plugagable retry policy */
