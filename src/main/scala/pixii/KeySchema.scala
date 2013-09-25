@@ -17,7 +17,7 @@ object KeySchema {
           .withKeyType(KeyTypes.Hash.code)
       )
 
-    override val attributeDefinitions = List(hashKeyAttribute.attributeDefinition)
+    override val attributeDefinitions = List(hashKeyAttribute.definition)
   }
 
   case class HashAndRangeKeySchema[H, R](
@@ -35,8 +35,8 @@ object KeySchema {
       )
 
     override val attributeDefinitions = List(
-      hashKeyAttribute.attributeDefinition,
-      rangeKeyAttribute.attributeDefinition
+      hashKeyAttribute.definition,
+      rangeKeyAttribute.definition
     )
   }
 }
