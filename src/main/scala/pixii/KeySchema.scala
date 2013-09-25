@@ -1,27 +1,30 @@
 package pixii
 
-import com.amazonaws.services.dynamodbv2.model.KeySchemaElement
+import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, KeySchemaElement}
 
 sealed trait KeySchema[K] {
   val keySchema: List[KeySchemaElement]
+  val attributeDefinitions: List[AttributeDefinition]
 }
 
 /** Enumeration of DynamoDB key schema types */
 object KeySchema {
   case class HashKeySchema[H](hashKeyAttribute: NamedAttribute[H]) extends KeySchema[H] {
-    val keySchema = 
+    override val keySchema =
       List[KeySchemaElement](
         new KeySchemaElement()
           .withAttributeName(hashKeyAttribute.name)
           .withKeyType(KeyTypes.Hash.code)
       )
+
+    override val attributeDefinitions = List(hashKeyAttribute.attributeDefinition)
   }
 
   case class HashAndRangeKeySchema[H, R](
     hashKeyAttribute: NamedAttribute[H],
     rangeKeyAttribute: NamedAttribute[R]
   ) extends KeySchema[(H, R)] {
-    val keySchema = 
+    override val keySchema =
       List[KeySchemaElement](
           new KeySchemaElement()
             .withAttributeName(hashKeyAttribute.name)
@@ -30,5 +33,10 @@ object KeySchema {
             .withAttributeName(rangeKeyAttribute.name)
             .withKeyType(KeyTypes.Range.code)
       )
+
+    override val attributeDefinitions = List(
+      hashKeyAttribute.attributeDefinition,
+      rangeKeyAttribute.attributeDefinition
+    )
   }
 }
