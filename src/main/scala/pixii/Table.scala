@@ -325,9 +325,11 @@ trait TableOperations[K,  V] { self: Table[V] =>
       .withReadCapacityUnits(readCapacity)
       .withWriteCapacityUnits(writeCapacity)
     )
+
     val request = (new CreateTableRequest()
       .withTableName(tableName)
       .withKeySchema(schema.keySchema)
+      .withAttributeDefinitions(schema.attributeDefinitions)
       .withProvisionedThroughput(provisionedThroughput)
     )
     dynamoDB.createTable(request)
