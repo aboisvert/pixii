@@ -241,7 +241,9 @@ trait TableOperations[K,  V] { self: Table[V] =>
       requests.clear()
       requests.addAll(unprocessed)
       requests.addAll(toAppend)
-      val response = dynamoDB.batchWriteItem(request)
+      val response = retryPolicy.retry("Table(%s).writeAll" format tableName) {
+        dynamoDB.batchWriteItem(request)
+      }
       val unprocessedItems = Option(response.getUnprocessedItems()) flatMap (m => Option(m.get(tableName)))
       if (unprocessedItems.isEmpty) {
         (requests.size, java.util.Collections.emptyList[WriteRequest](), remaining drop toAppend.size)
@@ -257,17 +259,16 @@ trait TableOperations[K,  V] { self: Table[V] =>
       override def hasRemainingOperations = pending.nonEmpty || !unprocessed.isEmpty
       override def submitMoreOperations() = {
         if (!hasRemainingOperations) throw new NoSuchElementException
-        retryPolicy.retry("Table(%s).writeAll" format tableName) {
-          val (written, stillUnprocessed, stillPending) = nextSubmission(unprocessed, pending)
-          completedOperations += written
-          unprocessed = stillUnprocessed
-          pending = stillPending
-          written
-        }
+        val (written, stillUnprocessed, stillPending) = nextSubmission(unprocessed, pending)
+        completedOperations += written
+        unprocessed = stillUnprocessed
+        pending = stillPending
+        written
       }
 
     }
   }
+
 
   protected def iterator[T](
     operationName: String,
