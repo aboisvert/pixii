@@ -16,14 +16,14 @@
 
     <dependencies defaultconfmapping="sources->sources();buildtime->provided(),default(),master();default->default(),master(),runtime();%->default;" defaultconf="default,sources">
        <!-- global (compile, test, runtime) dependencies -->
-      <dependency org="amazon" name="aws-java-sdk" rev="1.5.5" />
+      <dependency org="com.amazonaws" name="aws-java-sdk" rev="1.5.5" />
 
       <!-- compile -->
-      <dependency org="scala" name="scala" rev="2.10.1" conf="buildtime->compiler"/>
+      <dependency org="org.scala-lang" name="scala-compiler" rev="2.10.2" />
 
       <!-- test -->
       <dependency org="junit" name="junit" rev="4.8.2" conf="test"/>
-      <dependency org="scalatest" name="scalatest_2.10" rev="1.9.1" conf="test"/>
+      <dependency org="org.scalatest" name="scalatest_2.10" rev="1.9.1" conf="test"/>
 
     </dependencies>
 
