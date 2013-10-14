@@ -269,7 +269,6 @@ trait TableOperations[K,  V] { self: Table[V] =>
     }
   }
 
-
   protected def iterator[T](
     operationName: String,
     nextPage: Option[T] => (java.util.List[java.util.Map[String, AttributeValue]], T)
@@ -385,15 +384,12 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
     rangeKeyCondition: Condition = null,
     evaluateItemPageLimit: Int = -1
   )(implicit consistency: Consistency): Iterator[V] = {
-    val hashKeyCondition =
-      new Condition()
-        .withAttributeValueList(hashKeyAttribute(hashKeyValue).valuesIterator.next())
-        .withComparisonOperator(ComparisonOperator.EQ)
-    val keyConditions = {
-      if (rangeKeyCondition != null)
-        Map[String, Condition](KeyTypes.Hash.code -> hashKeyCondition, KeyTypes.Range.code -> rangeKeyCondition)
-      else
-        Map[String, Condition](KeyTypes.Hash.code -> hashKeyCondition)
+    val keyConditions = mutable.Map[String, Condition]()
+    keyConditions(hashKeyAttribute.name) = new Condition()
+      .withAttributeValueList(hashKeyAttribute(hashKeyValue).valuesIterator.next())
+      .withComparisonOperator(ComparisonOperator.EQ)
+    if (rangeKeyCondition != null) {
+      keyConditions(rangeKeyAttribute.name) = rangeKeyCondition
     }
     val request = (new QueryRequest()
       .withTableName(tableName)

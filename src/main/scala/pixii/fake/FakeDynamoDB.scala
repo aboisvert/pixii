@@ -123,10 +123,12 @@ class FakeDynamo extends AmazonDynamoDB {
     val responses = mutable.Map[String, java.util.List[java.util.Map[String, AttributeValue]]]()
     for ((tableName, keysAndAttributes) <- requests) {
       val table = getTable(tableName)
-      val items = for (key <- keysAndAttributes.getKeys) yield {
-        table.getItem(new GetItemRequest().withKey(key)).getItem()
-      }
-      responses += tableName -> items
+      val items = for {
+        key <- keysAndAttributes.getKeys
+        item <- table.getItemOpt(new GetItemRequest().withKey(key))
+      } yield item.getItem()
+      if (items.nonEmpty)
+        responses += tableName -> items
     }
     new BatchGetItemResult().withResponses(responses)
   }
@@ -166,6 +168,7 @@ abstract class FakeTable(
   var provisionedThroughput: ProvisionedThroughput) {
   val creationDateTime = new java.util.Date
   def getItem(getItemRequest: GetItemRequest): GetItemResult
+  def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult]
   def putItem(putItemRequest: PutItemRequest): PutItemResult
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult
@@ -296,12 +299,16 @@ class FakeTableWithHashKey(
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
-    val item = items.get(key) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
-    new GetItemResult().withItem(item)
+    getItemOpt(getItemRequest) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+  }
+
+  def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult] = {
+    val key = getItemRequest.getKey
+    items.get(key) map (new GetItemResult().withItem(_))
   }
 
   def putItem(putItemRequest: PutItemRequest): PutItemResult = {
-    val key = putItemRequest.getItem
+    val key = putItemRequest.getItem.filterKeys(k => keySchema.exists(k == _.getAttributeName))
     val item = items.getOrElseUpdate(key, mutable.Map())
     item.clear()
     item ++= putItemRequest.getItem
@@ -352,11 +359,14 @@ class FakeTableWithHashRangeKey(
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
+    getItemOpt(getItemRequest) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+  }
+
+  def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult] = {
+    val key = getItemRequest.getKey
     val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
     val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
-    val range = items.get(key(hashKey)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
-    val item = range.get(key(rangeKey)) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
-    new GetItemResult().withItem(item)
+    items.get(key(hashKey)) flatMap (_.get(key(rangeKey))) map (new GetItemResult().withItem(_))
   }
 
   def putItem(putItemRequest: PutItemRequest): PutItemResult = {
@@ -393,7 +403,7 @@ class FakeTableWithHashRangeKey(
   def queryItem(queryRequest: QueryRequest): QueryResult = {
     val result = new QueryResult()
     val hashKeyName = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(hashKeyName, new Condition())
+    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(KeyTypes.Hash.code, new Condition())
     val _items = items.getOrElse(hashKeyConditions.getAttributeValueList().iterator().next(), mutable.Map()).values.toList
     result.withItems(_items.asJava map { _.asJava })
   }
