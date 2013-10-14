@@ -392,7 +392,8 @@ class FakeTableWithHashRangeKey(
 
   def queryItem(queryRequest: QueryRequest): QueryResult = {
     val result = new QueryResult()
-    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(KeyTypes.Hash.code, new Condition())
+    val hashKeyName = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
+    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(hashKeyName, new Condition())
     val _items = items.getOrElse(hashKeyConditions.getAttributeValueList().iterator().next(), mutable.Map()).values.toList
     result.withItems(_items.asJava map { _.asJava })
   }
