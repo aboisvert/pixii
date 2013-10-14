@@ -4,7 +4,7 @@
 
     <configurations>
       <conf name="default" description="core dependencies needed at compile-time and runtime" />
-      <conf name="buildtime" visibility="private" description="additional dependencies needed only at build-time"/>
+      <conf name="compile" visibility="private" description="additional dependencies needed only at build-time"/>
       <conf name="test" visibility="private" description="additional dependencies needed only at test-time"/>
       <conf name="sources" description="sources"/>
       <conf name="javadocs" description="javadocs"/>
@@ -19,7 +19,7 @@
       <dependency org="com.amazonaws" name="aws-java-sdk" rev="1.5.5" />
 
       <!-- compile -->
-      <dependency org="org.scala-lang" name="scala-compiler" rev="2.10.2" />
+      <dependency org="org.scala-lang" name="scala-compiler" rev="2.10.2" conf="compile" />
 
       <!-- test -->
       <dependency org="junit" name="junit" rev="4.8.2" conf="test"/>
