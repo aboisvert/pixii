@@ -5,17 +5,24 @@ import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, AttributeVa
 import scala.collection._
 import scala.collection.JavaConversions._
 
+object Attribute {
+  trait Definition {
+    def definition: AttributeDefinition
+  }
+}
+
 trait Attribute {
   type ATTR
   def apply(value: ATTR): Map[String, AttributeValue] = sys.error("must be overriden")
   def unapply(item: Map[String, AttributeValue]): Option[ATTR] = sys.error("must be overriden")
 
   def get(item: Map[String, AttributeValue]): ATTR
-
-  def attributeDefinition: AttributeDefinition
 }
 
-abstract class NamedAttribute[T](val name: String)(implicit val conversion: AttributeValueConversion[T]) extends Attribute {
+abstract class NamedAttribute[T](val name: String)(implicit val conversion: AttributeValueConversion[T])
+  extends Attribute
+  with Attribute.Definition
+{
   type ATTR = T
   override def apply(value: T): Map[String, AttributeValue] = {
     val convertedValue = conversion(value)
@@ -23,7 +30,7 @@ abstract class NamedAttribute[T](val name: String)(implicit val conversion: Attr
   }
   override def unapply(item: Map[String, AttributeValue]): Option[T] = item.get(name) map conversion.unapply
   override def toString = "NamedAttribute(%s)" format name
-  override val attributeDefinition = new AttributeDefinition().withAttributeName(name).withAttributeType(conversion.attributeType.code)
+  override val definition = new AttributeDefinition().withAttributeName(name).withAttributeType(conversion.attributeType.code)
 }
 
 
