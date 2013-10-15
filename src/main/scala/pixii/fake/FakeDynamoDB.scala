@@ -168,8 +168,8 @@ abstract class FakeTable(
   var provisionedThroughput: ProvisionedThroughput) {
   val creationDateTime = new java.util.Date
 
-  val hashKeyName = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-  val rangeKeyName = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
+  lazy val hashKeyName = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
+  lazy val rangeKeyName = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult
   def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult]
