@@ -167,6 +167,10 @@ abstract class FakeTable(
   val keySchema: java.util.List[KeySchemaElement],
   var provisionedThroughput: ProvisionedThroughput) {
   val creationDateTime = new java.util.Date
+
+  lazy val hashKeyName = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
+  lazy val rangeKeyName = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
+
   def getItem(getItemRequest: GetItemRequest): GetItemResult
   def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult]
   def putItem(putItemRequest: PutItemRequest): PutItemResult
@@ -323,9 +327,8 @@ class FakeTableWithHashKey(
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
     val key = updateItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
     val item: mutable.Map[String, AttributeValue] = items.getOrElseUpdate(key,
-      mutable.Map(hashKey -> key(hashKey))
+      mutable.Map(hashKeyName -> key(hashKeyName))
     )
     updateItem(updateItemRequest, item)
   }
@@ -364,14 +367,12 @@ class FakeTableWithHashRangeKey(
 
   def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult] = {
     val key = getItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
-    items.get(key(hashKey)) flatMap (_.get(key(rangeKey))) map (new GetItemResult().withItem(_))
+    items.get(key(hashKeyName)) flatMap (_.get(key(rangeKeyName))) map (new GetItemResult().withItem(_))
   }
 
   def putItem(putItemRequest: PutItemRequest): PutItemResult = {
-    val range = items.getOrElseUpdate(putItemRequest.getItem.get(keySchema.filter(_.getKeyType() == KeyTypes.Hash.code).get(0).getAttributeName), mutable.Map())
-    val item = range.getOrElseUpdate(putItemRequest.getItem.get(keySchema.filter(_.getKeyType() == KeyTypes.Range.code).get(0).getAttributeName), mutable.Map())
+    val range = items.getOrElseUpdate(putItemRequest.getItem.get(hashKeyName), mutable.Map())
+    val item = range.getOrElseUpdate(putItemRequest.getItem.get(rangeKeyName), mutable.Map())
     item.clear()
     item ++= putItemRequest.getItem
     new PutItemResult()
@@ -379,22 +380,18 @@ class FakeTableWithHashRangeKey(
 
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
     val key = deleteItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
-    val range = items.get(key(hashKey)) getOrElse { return new DeleteItemResult() }
-    val item = range.remove(key(rangeKey)) getOrElse { return new DeleteItemResult() }
+    val range = items.get(key(hashKeyName)) getOrElse { return new DeleteItemResult() }
+    val item = range.remove(key(rangeKeyName)) getOrElse { return new DeleteItemResult() }
     new DeleteItemResult().withAttributes(item)
   }
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
     val key = updateItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
-    val range = items.getOrElseUpdate(key(hashKey), mutable.Map())
-    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key(rangeKey),
+    val range = items.getOrElseUpdate(key(hashKeyName), mutable.Map())
+    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key(rangeKeyName),
       mutable.Map(
-        hashKey -> key(hashKey),
-        rangeKey -> key(rangeKey)
+        hashKeyName -> key(hashKeyName),
+        rangeKeyName -> key(rangeKeyName)
       )
     )
     updateItem(updateItemRequest, item)
@@ -402,8 +399,7 @@ class FakeTableWithHashRangeKey(
 
   def queryItem(queryRequest: QueryRequest): QueryResult = {
     val result = new QueryResult()
-    val hashKeyName = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(KeyTypes.Hash.code, new Condition())
+    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(hashKeyName, new Condition())
     val _items = items.getOrElse(hashKeyConditions.getAttributeValueList().iterator().next(), mutable.Map()).values.toList
     result.withItems(_items.asJava map { _.asJava })
   }
