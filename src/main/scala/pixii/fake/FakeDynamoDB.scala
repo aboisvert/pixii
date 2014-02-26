@@ -6,7 +6,6 @@ import com.amazonaws.services.dynamodbv2._
 import com.amazonaws.services.dynamodbv2.model._
 
 import scala.collection._
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 import pixii.KeyTypes
@@ -29,7 +28,7 @@ class FakeDynamo extends AmazonDynamoDB {
   }
 
   override def listTables(listTablesRequest: ListTablesRequest): ListTablesResult = synchronized {
-    new ListTablesResult().withTableNames(_tables.keySet)
+    new ListTablesResult().withTableNames(_tables.keySet.asJava)
   }
 
   override def query(queryRequest: QueryRequest): QueryResult = {
@@ -41,11 +40,11 @@ class FakeDynamo extends AmazonDynamoDB {
   }
 
   override def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): BatchWriteItemResult = synchronized {
-    val requests: Map[String, java.util.List[WriteRequest]] = batchWriteItemRequest.getRequestItems
+    val requests: Map[String, java.util.List[WriteRequest]] = batchWriteItemRequest.getRequestItems.asScala
     val responses = mutable.ArrayBuffer[ConsumedCapacity]()
     for ((tableName, writeRequests) <- requests) {
       val table = getTable(tableName)
-      for (request <- writeRequests) {
+      for (request <- writeRequests.asScala) {
         if (request.getPutRequest != null) {
           table.putItem(new PutItemRequest().withItem(request.getPutRequest.getItem))
         } else if (request.getDeleteRequest != null) {
@@ -54,7 +53,7 @@ class FakeDynamo extends AmazonDynamoDB {
       }
       responses += new ConsumedCapacity().withTableName(tableName)
     }
-    new BatchWriteItemResult().withConsumedCapacity(responses)
+    new BatchWriteItemResult().withConsumedCapacity(responses.asJava)
   }
 
   override def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = synchronized {
@@ -83,7 +82,7 @@ class FakeDynamo extends AmazonDynamoDB {
       throw new AmazonServiceException("Table already exists: " + name)
     }
     val table =
-      if (createTableRequest.getKeySchema().filter(_.getKeyType == KeyTypes.Range.code).size == 0) {
+      if (createTableRequest.getKeySchema.asScala exists (_.getKeyType == KeyTypes.Range.code)) {
         val table = new FakeTableWithHashKey(
           name, createTableRequest.getKeySchema, createTableRequest.getProvisionedThroughput)
         _tables.getOrElseUpdate(name, table)
@@ -119,22 +118,22 @@ class FakeDynamo extends AmazonDynamoDB {
   }
 
   override def batchGetItem(batchGetItemRequest: BatchGetItemRequest): BatchGetItemResult = synchronized {
-    val requests: Map[String, KeysAndAttributes] = batchGetItemRequest.getRequestItems
+    val requests: Map[String, KeysAndAttributes] = batchGetItemRequest.getRequestItems.asScala
     val responses = mutable.Map[String, java.util.List[java.util.Map[String, AttributeValue]]]()
     for ((tableName, keysAndAttributes) <- requests) {
       val table = getTable(tableName)
       val items = for {
-        key <- keysAndAttributes.getKeys
+        key <- keysAndAttributes.getKeys.asScala
         item <- table.getItemOpt(new GetItemRequest().withKey(key))
       } yield item.getItem()
       if (items.nonEmpty)
-        responses += tableName -> items
+        responses += tableName -> items.asJava
     }
-    new BatchGetItemResult().withResponses(responses)
+    new BatchGetItemResult().withResponses(responses.asJava)
   }
 
   override def listTables(): ListTablesResult = synchronized {
-    new ListTablesResult().withTableNames(_tables.keySet)
+    new ListTablesResult().withTableNames(_tables.keySet.asJava)
   }
 
   override def shutdown(): Unit = ()
@@ -176,7 +175,7 @@ abstract class FakeTable(
   def dump(buf: StringBuilder): Unit
 
   def updateItem(updateItemRequest: UpdateItemRequest, item: mutable.Map[String, AttributeValue]): UpdateItemResult = {
-    for ((attr, update) <- updateItemRequest.getAttributeUpdates) {
+    for ((attr, update) <- updateItemRequest.getAttributeUpdates.asScala) {
       val value = item.get(attr) getOrElse null
 
       update.getAction match {
@@ -205,8 +204,8 @@ abstract class FakeTable(
               } else if (value.getN != null || value.getS != null || value.getNS != null) {
                 throw new AmazonServiceException("Existing value is not string set")
               } else if (value.getSS != null) {
-                val sum = (value.getSS ++ update.getValue.getSS).distinct
-                new AttributeValue().withSS(sum)
+                val sum = (value.getSS.asScala ++ update.getValue.getSS.asScala).distinct
+                new AttributeValue().withSS(sum.asJava)
               } else {
                 throw new AmazonServiceException("Unexpected")
               }
@@ -219,8 +218,8 @@ abstract class FakeTable(
               } else if (value.getN != null || value.getS != null || value.getSS != null) {
                 throw new AmazonServiceException("Existing value is not string set")
               } else if (value.getNS != null) {
-                val sum = (value.getNS ++ update.getValue.getNS).distinct
-                new AttributeValue().withNS(sum)
+                val sum = (value.getNS.asScala ++ update.getValue.getNS.asScala).distinct
+                new AttributeValue().withNS(sum.asJava)
               } else {
                 throw new AmazonServiceException("Unexpected")
               }
@@ -248,8 +247,8 @@ abstract class FakeTable(
               } else if (value.getN != null || value.getS != null || value.getNS != null) {
                 throw new AmazonServiceException("Existing value is not string set")
               } else if (value.getSS != null) {
-                val leftover = (value.getSS -- update.getValue.getSS)
-                new AttributeValue().withSS(leftover)
+                val leftover = (value.getSS.asScala -- update.getValue.getSS.asScala)
+                new AttributeValue().withSS(leftover.asJava)
               } else {
                 throw new AmazonServiceException("Unexpected")
               }
@@ -262,8 +261,8 @@ abstract class FakeTable(
               } else if (value.getN != null || value.getS != null || value.getSS != null) {
                 throw new AmazonServiceException("Existing value is not string set")
               } else if (value.getNS != null) {
-                val leftover = (value.getNS -- update.getValue.getNS)
-                new AttributeValue().withNS(leftover)
+                val leftover = (value.getNS.asScala -- update.getValue.getNS.asScala)
+                new AttributeValue().withNS(leftover.asJava)
               } else {
                 throw new AmazonServiceException("Unexpected")
               }
@@ -297,42 +296,43 @@ class FakeTableWithHashKey(
   extends FakeTable(name, keySchema, provisionedThroughput) {
   val items = mutable.Map[Map[String, AttributeValue], mutable.Map[String, AttributeValue]]()
 
+  val hashKey = keySchema.asScala find (_.getKeyType == KeyTypes.Hash.code) get;
+
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
-    getItemOpt(getItemRequest) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+    getItemOpt(getItemRequest) getOrElse { new GetItemResult() }
   }
 
   def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult] = {
-    val key = getItemRequest.getKey
-    items.get(key) map (new GetItemResult().withItem(_))
+    val key = getItemRequest.getKey.asScala
+    items.get(key) map { item => new GetItemResult().withItem(item.asJava) }
   }
 
   def putItem(putItemRequest: PutItemRequest): PutItemResult = {
-    val key = putItemRequest.getItem.filterKeys(k => keySchema.exists(k == _.getAttributeName))
+    val key = putItemRequest.getItem.asScala filterKeys (_ == hashKey.getAttributeName)
     val item = items.getOrElseUpdate(key, mutable.Map())
     item.clear()
-    item ++= putItemRequest.getItem
+    item ++= putItemRequest.getItem.asScala
     new PutItemResult()
   }
 
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
-    val key = deleteItemRequest.getKey
+    val key = deleteItemRequest.getKey.asScala
     val item = items.remove(key) getOrElse { return new DeleteItemResult() }
-    new DeleteItemResult().withAttributes(item)
+    new DeleteItemResult().withAttributes(item.asJava)
   }
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
-    val key = updateItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
+    val key = updateItemRequest.getKey.asScala
     val item: mutable.Map[String, AttributeValue] = items.getOrElseUpdate(key,
-      mutable.Map(hashKey -> key(hashKey))
+      mutable.Map(hashKey.getAttributeName -> key(hashKey.getAttributeName))
     )
     updateItem(updateItemRequest, item)
   }
 
   def scan(scanRequest: ScanRequest): ScanResult = {
     if (scanRequest.getScanFilter == null || scanRequest.getScanFilter.isEmpty()) {
-      (new ScanResult).withItems(asJavaCollection(items.values map mutableMapAsJavaMap))
+      (new ScanResult).withItems(items.values map (_.asJava) asJavaCollection)
     } else {
       sys.error("Scan with filter not yet supported")
     }
@@ -355,46 +355,47 @@ class FakeTableWithHashRangeKey(
   keySchema: java.util.List[KeySchemaElement],
   provisionedThroughput: ProvisionedThroughput)
   extends FakeTable(name, keySchema, provisionedThroughput) {
+
   val items = mutable.Map[AttributeValue, mutable.Map[AttributeValue, mutable.Map[String, AttributeValue]]]()
+
+  val hashKey = keySchema.asScala find (_.getKeyType == KeyTypes.Hash.code) get;
+  val rangeKey = keySchema.asScala find (_.getKeyType == KeyTypes.Range.code) get;
+
 
   def getItem(getItemRequest: GetItemRequest): GetItemResult = {
     val key = getItemRequest.getKey
-    getItemOpt(getItemRequest) getOrElse { throw new ResourceNotFoundException("Item not found: " + key) }
+    getItemOpt(getItemRequest) getOrElse { new GetItemResult() }
   }
 
   def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult] = {
-    val key = getItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
-    items.get(key(hashKey)) flatMap (_.get(key(rangeKey))) map (new GetItemResult().withItem(_))
+    val key = getItemRequest.getKey.asScala
+    items.get(key(hashKey.getAttributeName))
+      .flatMap (_.get(key(rangeKey.getAttributeName)))
+      .map { item => new GetItemResult().withItem(item.asJava) }
   }
 
   def putItem(putItemRequest: PutItemRequest): PutItemResult = {
-    val range = items.getOrElseUpdate(putItemRequest.getItem.get(keySchema.filter(_.getKeyType() == KeyTypes.Hash.code).get(0).getAttributeName), mutable.Map())
-    val item = range.getOrElseUpdate(putItemRequest.getItem.get(keySchema.filter(_.getKeyType() == KeyTypes.Range.code).get(0).getAttributeName), mutable.Map())
+    val range = items.getOrElseUpdate(putItemRequest.getItem.get(hashKey.getAttributeName), mutable.Map())
+    val item = range.getOrElseUpdate(putItemRequest.getItem.get(rangeKey.getAttributeName), mutable.Map())
     item.clear()
-    item ++= putItemRequest.getItem
+    item ++= putItemRequest.getItem.asScala
     new PutItemResult()
   }
 
   def deleteItem(deleteItemRequest: DeleteItemRequest): DeleteItemResult = {
-    val key = deleteItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
-    val range = items.get(key(hashKey)) getOrElse { return new DeleteItemResult() }
-    val item = range.remove(key(rangeKey)) getOrElse { return new DeleteItemResult() }
-    new DeleteItemResult().withAttributes(item)
+    val key = deleteItemRequest.getKey.asScala
+    val range = items.get(key(hashKey.getAttributeName)) getOrElse { return new DeleteItemResult() }
+    val item = range.remove(key(rangeKey.getAttributeName)) getOrElse { return new DeleteItemResult() }
+    new DeleteItemResult().withAttributes(item.asJava)
   }
 
   def updateItem(updateItemRequest: UpdateItemRequest): UpdateItemResult = {
-    val key = updateItemRequest.getKey
-    val hashKey = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val rangeKey = keySchema.filter(_.getKeyType == KeyTypes.Range.code).get(0).getAttributeName()
-    val range = items.getOrElseUpdate(key(hashKey), mutable.Map())
-    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key(rangeKey),
+    val key = updateItemRequest.getKey.asScala
+    val range = items.getOrElseUpdate(key(hashKey.getAttributeName), mutable.Map())
+    val item: mutable.Map[String, AttributeValue] = range.getOrElseUpdate(key(rangeKey.getAttributeName),
       mutable.Map(
-        hashKey -> key(hashKey),
-        rangeKey -> key(rangeKey)
+        hashKey.getAttributeName -> key(hashKey.getAttributeName),
+        rangeKey.getAttributeName -> key(rangeKey.getAttributeName)
       )
     )
     updateItem(updateItemRequest, item)
@@ -402,15 +403,14 @@ class FakeTableWithHashRangeKey(
 
   def queryItem(queryRequest: QueryRequest): QueryResult = {
     val result = new QueryResult()
-    val hashKeyName = keySchema.filter(_.getKeyType == KeyTypes.Hash.code).get(0).getAttributeName()
-    val hashKeyConditions = queryRequest.getKeyConditions().getOrElse(hashKeyName, new Condition())
+    val hashKeyConditions = queryRequest.getKeyConditions.asScala getOrElse (hashKey.getAttributeName, new Condition())
     val _items = items.getOrElse(hashKeyConditions.getAttributeValueList().iterator().next(), mutable.Map()).values.toList
-    result.withItems(_items.asJava map { _.asJava })
+    result.withItems(_items map (_.asJava) asJavaCollection)
   }
 
   def scan(scanRequest: ScanRequest): ScanResult = {
     if (scanRequest.getScanFilter.isEmpty()) {
-      new ScanResult().withItems(items.values.toList.asJava flatMap { _.values.toList } map mutableMapAsJavaMap)
+      new ScanResult().withItems(items.values.toList flatMap (_.values.toList) map (_.asJava) asJavaCollection)
     } else {
       sys.error("Scan with filter not yet supported")
     }
