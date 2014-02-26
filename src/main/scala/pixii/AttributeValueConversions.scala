@@ -3,7 +3,7 @@ package pixii
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
 
 import scala.collection._
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 trait AttributeValueConversion[T] {
   val attributeType: AttributeType
@@ -42,20 +42,20 @@ object AttributeValueConversions {
 
   implicit object IntSet extends AttributeValueConversion[Set[Int]] {
     override val attributeType = AttributeTypes.NumberSet
-    override def apply(values: Set[Int]): Option[AttributeValue] = Some(new AttributeValue().withNS(values map (_.toString)))
-    override def unapply(value: AttributeValue): Set[Int] = value.getNS map (_.toInt) toSet
+    override def apply(values: Set[Int]): Option[AttributeValue] = Some(new AttributeValue().withNS(values map (_.toString) asJava))
+    override def unapply(value: AttributeValue): Set[Int] = value.getNS.asScala map (_.toInt) toSet
   }
 
   implicit object LongSet extends AttributeValueConversion[Set[Long]] {
     override val attributeType = AttributeTypes.NumberSet
-    override def apply(values: Set[Long]): Option[AttributeValue] = Some(new AttributeValue().withNS(values map (_.toString)))
-    override def unapply(value: AttributeValue): Set[Long] = value.getNS map (_.toLong) toSet
+    override def apply(values: Set[Long]): Option[AttributeValue] = Some(new AttributeValue().withNS(values map (_.toString) asJava))
+    override def unapply(value: AttributeValue): Set[Long] = value.getNS.asScala map (_.toLong) toSet
   }
 
   implicit object StringSet extends AttributeValueConversion[Set[String]] {
     override val attributeType = AttributeTypes.String
-    override def apply(values: Set[String]): Option[AttributeValue] = Some(new AttributeValue().withSS(values))
-    override def unapply(value: AttributeValue): Set[String] = value.getSS.toSet
+    override def apply(values: Set[String]): Option[AttributeValue] = Some(new AttributeValue().withSS(values.asJava))
+    override def unapply(value: AttributeValue): Set[String] = value.getSS.asScala.toSet
   }
 
   /**
