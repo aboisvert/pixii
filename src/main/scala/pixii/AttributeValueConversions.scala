@@ -18,6 +18,14 @@ object AttributeValueConversions {
     override def unapply(value: AttributeValue) = value.getS
   }
 
+  implicit object BooleanConversion extends AttributeValueConversion[Boolean] {
+    override val attributeType = AttributeTypes.Number
+    override def apply(value: Boolean) = Some(new AttributeValue().withN(if (value) "1" else "0"))
+    override def unapply(value: AttributeValue) = {
+      if (value.getN == null) null.asInstanceOf[Boolean] else value.getN.toInt == 1
+    }
+  }
+
   implicit object IntConversion extends AttributeValueConversion[Int] {
     override val attributeType = AttributeTypes.Number
     override def apply(value: Int) = Some(new AttributeValue().withN(value.toString))
