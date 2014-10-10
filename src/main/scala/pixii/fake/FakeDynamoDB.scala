@@ -4,11 +4,11 @@ import com.amazonaws._
 import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2._
 import com.amazonaws.services.dynamodbv2.model._
-
+import java.util.Date
+import pixii.KeyTypes
 import scala.collection._
 import scala.collection.JavaConverters._
 
-import pixii.KeyTypes
 
 class FakeDynamo extends AmazonDynamoDB {
 
@@ -285,7 +285,11 @@ abstract class FakeTable(
       .withProvisionedThroughput(
         new ProvisionedThroughputDescription()
           .withReadCapacityUnits(provisionedThroughput.getReadCapacityUnits)
-          .withWriteCapacityUnits(provisionedThroughput.getWriteCapacityUnits))
+          .withWriteCapacityUnits(provisionedThroughput.getWriteCapacityUnits)
+          .withLastDecreaseDateTime(new Date)
+          .withLastIncreaseDateTime(new Date)
+          .withNumberOfDecreasesToday(10L))
+
 
 }
 
@@ -345,8 +349,14 @@ class FakeTableWithHashKey(
     }
   }
 
-  override def describe(status: TableStatus): TableDescription =
-    super.describe(status).withItemCount(items.size)
+  override def describe(status: TableStatus): TableDescription = {
+    val tableSize = items.map { case (keys: Map[String, AttributeValue], values: Map[String, AttributeValue]) =>
+      val keysSize = keys.map(_._1.getBytes.size).sum
+      val valuesSize = values.map(_._1.getBytes.size).sum
+      keysSize + valuesSize
+    }.sum
+    super.describe(status).withItemCount(items.size).withTableSizeBytes(tableSize)
+  }
 
 }
 
