@@ -357,9 +357,23 @@ trait TableOperations[K,  V] { self: Table[V] =>
     dynamoDB.updateTable(request)
   }
 
+  def createOrUpdateTable(readCapacity: Long, writeCapacity: Long) = {
+    def isDifferentThroughput(description: TableDescription[_]): Boolean = {
+      description.provisionedThroughput.readCapacityUnits != readCapacity ||
+        description.provisionedThroughput.writeCapacityUnits != writeCapacity
+    }
+    describeTable()
+      .map(d => if (isDifferentThroughput(d)) updateTable(readCapacity, writeCapacity))
+      .getOrElse(createTable(readCapacity, writeCapacity))
+  }
+
   def deleteTable_!(): Unit = {
     val deleteTableRequest = new DeleteTableRequest().withTableName(tableName)
     dynamoDB.deleteTable(deleteTableRequest)
+  }
+
+  def isTableReadyToUpdate: Boolean = {
+    describeTable().map(d => d.tableStatus.equals(TableStatus.Active)).getOrElse(false)
   }
 }
 
