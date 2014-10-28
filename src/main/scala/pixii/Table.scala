@@ -191,7 +191,26 @@ trait TableOperations[K,  V] { self: Table[V] =>
       if (remainingKeys.isDefined) keysAndAttributes.setKeys(remainingKeys.get)
       val response = dynamoDB.batchGetItem(request)
       val unprocessedKeys = Option(response.getUnprocessedKeys) flatMap (m => Option(m.get(tableName)))
-      (response.getResponses.get(tableName), unprocessedKeys map (_.getKeys) orNull)
+      // Work around an AWS bug that does not return the correct attribute names in the list of unprocessed keys.
+      val recoveredKeys = unprocessedKeys map { unprocessedKeys =>
+        val (hashKeyName, rangeKeyName) = schema match {
+          case KeySchema.HashKeySchema(hash) => hash.name -> None
+          case s: KeySchema.HashAndRangeKeySchema[_, _] => s.hashKeyAttribute.name -> Some(s.rangeKeyAttribute.name)
+        }
+        unprocessedKeys.getKeys map { key =>
+          key collect {
+            case (name, value) if name == "HashKeyElement" =>
+              println(s"""AWS returned "HashKeyElement" as a key attribute name instead of "$hashKeyName"""")
+              hashKeyName -> value
+            case (name, value) if rangeKeyName.nonEmpty && name == "RangeKeyElement" =>
+              rangeKeyName.get -> value
+            case entry =>
+              entry
+          } asJava
+        }
+      }
+      // End AWS workaround.
+      (response.getResponses.get(tableName), recoveredKeys map { _ asJava } orNull)
     }
 
     new Iterator[V] {
