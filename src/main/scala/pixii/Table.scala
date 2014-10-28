@@ -197,8 +197,8 @@ trait TableOperations[K,  V] { self: Table[V] =>
           case KeySchema.HashKeySchema(hash) => hash.name -> None
           case s: KeySchema.HashAndRangeKeySchema[_, _] => s.hashKeyAttribute.name -> Some(s.rangeKeyAttribute.name)
         }
-        unprocessedKeys.getKeys map { key =>
-          key collect {
+        unprocessedKeys.getKeys.asScala map { key =>
+          key.asScala collect {
             case (name, value) if name == "HashKeyElement" =>
               println(s"""AWS returned "HashKeyElement" as a key attribute name instead of "$hashKeyName"""")
               hashKeyName -> value
