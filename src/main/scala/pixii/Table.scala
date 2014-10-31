@@ -248,7 +248,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
       .withRequestItems(mutable.Map(tableName -> requests).asJava)
     )
 
-    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: Iterator[WriteOperation[K, V]]) = {
+    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: IndexedSeq[WriteOperation[K, V]]) = {
       val toAppend = remaining.take(25 - unprocessed.size).collect {
         case WriteOperation.Put(value) =>
           new WriteRequest().withPutRequest(new PutRequest().withItem(itemMapper(value).asJava))
@@ -270,7 +270,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
     new WriteSequence {
 
-      private var pending = operations
+      private var pending: IndexedSeq[WriteOperation[K,V]] = operations.toIndexedSeq
       private var unprocessed = java.util.Collections.emptyList[WriteRequest]()
       var completedOperations = 0
       override def hasRemainingOperations = pending.nonEmpty || !unprocessed.isEmpty
