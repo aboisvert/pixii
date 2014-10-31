@@ -381,9 +381,10 @@ trait TableOperations[K,  V] { self: Table[V] =>
       description.provisionedThroughput.readCapacityUnits != readCapacity ||
         description.provisionedThroughput.writeCapacityUnits != writeCapacity
     }
-    describeTable()
-      .map(d => if (isDifferentThroughput(d)) updateTable(readCapacity, writeCapacity))
-      .getOrElse(createTable(readCapacity, writeCapacity))
+    describeTable() match {
+      case Some(description) => if (isDifferentThroughput(description)) updateTable(readCapacity, writeCapacity)
+      case None => createTable(readCapacity, writeCapacity)
+    }
   }
 
   def deleteTable_!(): Unit = {
@@ -391,8 +392,8 @@ trait TableOperations[K,  V] { self: Table[V] =>
     dynamoDB.deleteTable(deleteTableRequest)
   }
 
-  def isTableReadyToUpdate: Boolean = {
-    describeTable().map(d => d.tableStatus.equals(TableStatus.Active)).getOrElse(false)
+  def isTableActive: Boolean = {
+    describeTable().map(d => d.tableStatus == TableStatus.Active).getOrElse(false)
   }
 }
 
