@@ -197,8 +197,8 @@ trait TableOperations[K,  V] { self: Table[V] =>
           case KeySchema.HashKeySchema(hash) => hash.name -> None
           case s: KeySchema.HashAndRangeKeySchema[_, _] => s.hashKeyAttribute.name -> Some(s.rangeKeyAttribute.name)
         }
-        unprocessedKeys.getKeys map { key =>
-          key collect {
+        unprocessedKeys.getKeys.asScala map { key =>
+          key.asScala collect {
             case (name, value) if name == "HashKeyElement" =>
               println(s"""AWS returned "HashKeyElement" as a key attribute name instead of "$hashKeyName"""")
               hashKeyName -> value
@@ -248,7 +248,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
       .withRequestItems(mutable.Map(tableName -> requests).asJava)
     )
 
-    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: Iterator[WriteOperation[K, V]]) = {
+    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: IndexedSeq[WriteOperation[K, V]]) = {
       val toAppend = remaining.take(25 - unprocessed.size).collect {
         case WriteOperation.Put(value) =>
           new WriteRequest().withPutRequest(new PutRequest().withItem(itemMapper(value).asJava))
@@ -270,7 +270,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
     new WriteSequence {
 
-      private var pending = operations
+      private var pending: IndexedSeq[WriteOperation[K,V]] = operations.toIndexedSeq
       private var unprocessed = java.util.Collections.emptyList[WriteRequest]()
       var completedOperations = 0
       override def hasRemainingOperations = pending.nonEmpty || !unprocessed.isEmpty
@@ -376,9 +376,24 @@ trait TableOperations[K,  V] { self: Table[V] =>
     dynamoDB.updateTable(request)
   }
 
+  def createOrUpdateTable(readCapacity: Long, writeCapacity: Long) = {
+    def isDifferentThroughput(description: TableDescription[_]): Boolean = {
+      description.provisionedThroughput.readCapacityUnits != readCapacity ||
+        description.provisionedThroughput.writeCapacityUnits != writeCapacity
+    }
+    describeTable() match {
+      case Some(description) => if (isDifferentThroughput(description)) updateTable(readCapacity, writeCapacity)
+      case None => createTable(readCapacity, writeCapacity)
+    }
+  }
+
   def deleteTable_!(): Unit = {
     val deleteTableRequest = new DeleteTableRequest().withTableName(tableName)
     dynamoDB.deleteTable(deleteTableRequest)
+  }
+
+  def isTableActive: Boolean = {
+    describeTable().map(d => d.tableStatus == TableStatus.Active).getOrElse(false)
   }
 }
 
