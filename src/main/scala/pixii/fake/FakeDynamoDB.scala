@@ -83,12 +83,12 @@ class FakeDynamo extends AmazonDynamoDB {
     }
     val table =
       if (createTableRequest.getKeySchema.asScala exists (_.getKeyType == KeyTypes.Range.code)) {
-        val table = new FakeTableWithHashKey(
+        val table = new FakeTableWithHashRangeKey(
           name, createTableRequest.getKeySchema, createTableRequest.getProvisionedThroughput)
         _tables.getOrElseUpdate(name, table)
         table
       } else {
-        val table = new FakeTableWithHashRangeKey(
+        val table = new FakeTableWithHashKey(
           name, createTableRequest.getKeySchema, createTableRequest.getProvisionedThroughput)
         _tables.getOrElseUpdate(name, table)
         table
