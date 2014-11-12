@@ -398,7 +398,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
     describeTable().map(d => d.tableStatus == TableStatus.Active).getOrElse(false)
   }
 
-  def waitUntilActive(timeout: Duration, sleepBetweenChecks: Duration = 15 seconds): Boolean = {
+  def waitUntilTableActive(timeout: Duration, sleepBetweenChecks: Duration = 15 seconds): Boolean = {
     val end = System.currentTimeMillis + timeout.toMillis
     while (System.currentTimeMillis < end) {
       if (isTableActive) return true
