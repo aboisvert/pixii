@@ -12,6 +12,8 @@ import scala.collection.mutable.SynchronizedBuffer
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 
+import scala.concurrent.duration._
+
 trait Table[T] {
   /** User-provided table name */
   val tableName: String
@@ -394,6 +396,15 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
   def isTableActive: Boolean = {
     describeTable().map(d => d.tableStatus == TableStatus.Active).getOrElse(false)
+  }
+
+  def waitUntilActive(timeout: Duration, sleepBetweenChecks: Duration = 15 seconds): Boolean = {
+    val end = System.currentTimeMillis + timeout.toMillis
+    while (System.currentTimeMillis < end) {
+      if (isTableActive) return true
+      Thread.sleep(sleepBetweenChecks.toMillis)
+    }
+    false
   }
 }
 
