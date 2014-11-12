@@ -1,9 +1,9 @@
 package pixii
 
-
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.dynamodbv2.model._
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
 
 /** Plugagable retry policy */
 trait RetryPolicy {
@@ -39,6 +39,10 @@ class FibonacciBackoff(
   val log: Logger
 ) extends RetryPolicy {
   import RetryPolicy._
+
+  def this(retryDuration: Duration, log: Logger) = {
+    this((retryDuration.length, retryDuration.unit), log)
+  }
 
   def retry[T](operation: String)(f: => T): T = {
     val start = System.currentTimeMillis()
