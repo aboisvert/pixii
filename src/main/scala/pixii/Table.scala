@@ -12,6 +12,8 @@ import scala.collection.mutable.SynchronizedBuffer
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 
+import scala.concurrent.duration._
+
 trait Table[T] {
   /** User-provided table name */
   val tableName: String
@@ -248,7 +250,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
       .withRequestItems(mutable.Map(tableName -> requests).asJava)
     )
 
-    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: Iterator[WriteOperation[K, V]]) = {
+    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: IndexedSeq[WriteOperation[K, V]]) = {
       val toAppend = remaining.take(25 - unprocessed.size).collect {
         case WriteOperation.Put(value) =>
           new WriteRequest().withPutRequest(new PutRequest().withItem(itemMapper(value).asJava))
@@ -270,7 +272,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
     new WriteSequence {
 
-      private var pending = operations
+      private var pending: IndexedSeq[WriteOperation[K,V]] = operations.toIndexedSeq
       private var unprocessed = java.util.Collections.emptyList[WriteRequest]()
       var completedOperations = 0
       override def hasRemainingOperations = pending.nonEmpty || !unprocessed.isEmpty
@@ -376,9 +378,33 @@ trait TableOperations[K,  V] { self: Table[V] =>
     dynamoDB.updateTable(request)
   }
 
+  def createOrUpdateTable(readCapacity: Long, writeCapacity: Long) = {
+    def isDifferentThroughput(description: TableDescription[_]): Boolean = {
+      description.provisionedThroughput.readCapacityUnits != readCapacity ||
+        description.provisionedThroughput.writeCapacityUnits != writeCapacity
+    }
+    describeTable() match {
+      case Some(description) => if (isDifferentThroughput(description)) updateTable(readCapacity, writeCapacity)
+      case None => createTable(readCapacity, writeCapacity)
+    }
+  }
+
   def deleteTable_!(): Unit = {
     val deleteTableRequest = new DeleteTableRequest().withTableName(tableName)
     dynamoDB.deleteTable(deleteTableRequest)
+  }
+
+  def isTableActive: Boolean = {
+    describeTable().map(d => d.tableStatus == TableStatus.Active).getOrElse(false)
+  }
+
+  def waitUntilActive(timeout: Duration, sleepBetweenChecks: Duration = 15 seconds): Boolean = {
+    val end = System.currentTimeMillis + timeout.toMillis
+    while (System.currentTimeMillis < end) {
+      if (isTableActive) return true
+      Thread.sleep(sleepBetweenChecks.toMillis)
+    }
+    false
   }
 }
 
