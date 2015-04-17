@@ -142,6 +142,31 @@ class FakeDynamo extends AmazonDynamoDB {
     throw new UnsupportedOperationException
   }
 
+  /* Unimplemented stubs */
+  
+  override def batchGetItem(items: java.util.Map[String,KeysAndAttributes]): BatchGetItemResult = ???
+  override def batchGetItem(items: java.util.Map[String,KeysAndAttributes], attr: String): BatchGetItemResult = ???
+  override def batchWriteItem(requests: java.util.Map[String,java.util.List[WriteRequest]]): BatchWriteItemResult = ???
+  override def createTable(attrs: java.util.List[AttributeDefinition], s: String, schema: java.util.List[KeySchemaElement], capacity: ProvisionedThroughput): CreateTableResult = ???
+  override def deleteItem(key: String, attrs: java.util.Map[String,AttributeValue], s: String): DeleteItemResult = ???
+  override def deleteItem(key: String, attrs: java.util.Map[String,AttributeValue]): DeleteItemResult = ???
+  override def deleteTable(name: String): DeleteTableResult = ???
+  override def describeTable(name: String): DescribeTableResult = ???
+  override def getItem(key: String, attrs: java.util.Map[String, AttributeValue], b: java.lang.Boolean): GetItemResult = ???
+  override def getItem(key: String, attrs: java.util.Map[String, AttributeValue]): GetItemResult = ???
+  override def listTables(i: Integer): ListTablesResult = ???
+  override def listTables(s: String, i: Integer): ListTablesResult = ???
+  override def listTables(s: String): ListTablesResult = ???
+  override def putItem(key: String, attrs: java.util.Map[String,AttributeValue], s: String): PutItemResult = ???
+  override def putItem(key: String, attrs: java.util.Map[String,AttributeValue]): PutItemResult = ???
+  override def scan(key: String, attrs: java.util.List[String], conditions: java.util.Map[String,Condition]): ScanResult = ???
+  override def scan(key: String, attrs: java.util.Map[String,Condition]): ScanResult = ???
+  override def scan(key: String, attrs: java.util.List[String]): ScanResult = ???
+  override def updateItem(key: String, attrs: java.util.Map[String,AttributeValue], attrs2: java.util.Map[String,AttributeValueUpdate], s: String): UpdateItemResult = ???
+  override def updateItem(key: String, attrs: java.util.Map[String,AttributeValue], attrs2: java.util.Map[String,AttributeValueUpdate]): UpdateItemResult = ???
+  override def updateTable(name: String, capacity: ProvisionedThroughput): UpdateTableResult = ???
+  
+  
   private def getTable(name: String): FakeTable = synchronized {
     _tables.get(name) getOrElse { throw new ResourceNotFoundException("Table not found: " + name) }
   }
