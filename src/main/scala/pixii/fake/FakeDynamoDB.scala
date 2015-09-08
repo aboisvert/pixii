@@ -9,7 +9,6 @@ import pixii.KeyTypes
 import scala.collection._
 import scala.collection.JavaConverters._
 
-
 class FakeDynamo extends AmazonDynamoDB {
 
   var _endpoint: String = _
@@ -191,6 +190,10 @@ abstract class FakeTable(
   val keySchema: java.util.List[KeySchemaElement],
   var provisionedThroughput: ProvisionedThroughput) {
   val creationDateTime = new java.util.Date
+
+  lazy val hashKeyName = keySchema.asScala.filter(_.getKeyType == KeyTypes.Hash.code).head.getAttributeName()
+  lazy val rangeKeyName = keySchema.asScala.filter(_.getKeyType == KeyTypes.Range.code).head.getAttributeName()
+
   def getItem(getItemRequest: GetItemRequest): GetItemResult
   def getItemOpt(getItemRequest: GetItemRequest): Option[GetItemResult]
   def putItem(putItemRequest: PutItemRequest): PutItemResult
@@ -380,7 +383,7 @@ class FakeTableWithHashKey(
       val valuesSize = values.map(_._1.getBytes.size).sum
       keysSize + valuesSize
     }.sum
-    super.describe(status).withItemCount(items.size).withTableSizeBytes(tableSize)
+    super.describe(status).withItemCount(items.size.toLong).withTableSizeBytes(tableSize.toLong)
   }
 
 }
@@ -459,6 +462,6 @@ class FakeTableWithHashRangeKey(
   }
 
   override def describe(status: TableStatus): TableDescription =
-    super.describe(status).withItemCount(items.values.map(_.size).sum)
+    super.describe(status).withItemCount(items.values.map(_.size).sum.toLong)
 
 }

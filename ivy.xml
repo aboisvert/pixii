@@ -14,12 +14,12 @@
       <artifact conf="default"/>
     </publications>
 
-    <dependencies defaultconfmapping="sources->sources();buildtime->provided(),default(),master();default->default(),master(),runtime();%->default;" defaultconf="default,sources">
+    <dependencies defaultconfmapping="sources->sources();%->default;" defaultconf="default,sources">
        <!-- global (compile, test, runtime) dependencies -->
-      <dependency org="com.amazonaws" name="aws-java-sdk-dynamodb" rev="1.9.30" />
+      <dependency org="com.amazonaws" name="aws-java-sdk-dynamodb" rev="1.10.10" />
 
       <!-- compile -->
-      <dependency org="org.scala-lang" name="scala-compiler" rev="2.10.2" conf="compile" />
+      <dependency org="org.scala-lang" name="scala-compiler" rev="2.10.5" conf="compile" />
 
       <!-- test -->
       <dependency org="junit" name="junit" rev="4.8.2" conf="test"/>

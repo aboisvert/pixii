@@ -10,7 +10,8 @@ object AttributeTypes {
 
   object StringSet extends AttributeType("SS")
   object NumberSet extends AttributeType("NS")
+  object MapAttribute extends AttributeType("MA")
 
-  val enumeration = Set(Binary, Number, String, StringSet, NumberSet)
+  val enumeration = Set(Binary, Number, String, StringSet, NumberSet, MapAttribute)
 }
 
