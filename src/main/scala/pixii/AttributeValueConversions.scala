@@ -1,7 +1,6 @@
 package pixii
 
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
-
 import scala.collection._
 import scala.collection.JavaConverters._
 
@@ -89,5 +88,17 @@ object AttributeValueConversions {
     }
   }
 
-
+  implicit def mapAttributeValueConversion[T](implicit conversion: AttributeValueConversion[T]) = new AttributeValueConversion[Map[String, T]] {
+    override val attributeType = AttributeTypes.MapAttribute
+    override def apply(values: Map[String, T]): Option[AttributeValue] = {
+      val map = values mapValues { conversion.apply } filter { _._2.nonEmpty } mapValues { _.get }
+      Some(new AttributeValue().withM(map.asJava))
+    }
+    override def unapply(value: AttributeValue): Map[String, T] = {
+      Option(value.getM)
+        .map { _.asScala }
+        .getOrElse { Map.empty[String, AttributeValue] }
+        .mapValues { conversion.unapply }
+    }
+  }
 }
