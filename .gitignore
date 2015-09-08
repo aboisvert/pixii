@@ -4,3 +4,4 @@
 *.iml
 /ivycache*
 /out
+build.properties

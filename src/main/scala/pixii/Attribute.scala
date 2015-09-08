@@ -3,7 +3,6 @@ package pixii
 import com.amazonaws.services.dynamodbv2.model.{AttributeDefinition, AttributeValue}
 
 import scala.collection._
-import scala.collection.JavaConversions._
 
 object Attribute {
   trait Definition {

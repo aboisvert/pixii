@@ -10,9 +10,9 @@ import com.amazonaws.services.dynamodbv2.model.{ TableStatus => AWSTableStatus }
 import scala.collection._
 import scala.collection.mutable.SynchronizedBuffer
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
+import scala.concurrent.duration._
 
 trait Table[T] {
   /** User-provided table name */
@@ -41,11 +41,11 @@ trait TableOperations[K,  V] { self: Table[V] =>
       try {
         val request = (new GetItemRequest()
           .withTableName(tableName)
-          .withKey(toKey(key))
+          .withKey(toKey(key).asJava)
           .withConsistentRead(consistency.isConsistentRead)
         )
         val response = dynamoDB.getItem(request)
-        Option(response.getItem) map { item => itemMapper.unapply(item.toMap) }
+        Option(response.getItem) map { item => itemMapper.unapply(item.asScala) }
       } catch { case e: ResourceNotFoundException =>
         return None
       }
@@ -57,7 +57,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
     retryPolicy.retry("Table(%s).delete(%s)" format (tableName, key)) {
       val request = (new DeleteItemRequest()
         .withTableName(tableName)
-          .withKey(toKey(key))
+          .withKey(toKey(key).asJava)
       )
       val response = dynamoDB.deleteItem(request)
     }
@@ -68,7 +68,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
     retryPolicy.retry("Table(%s).put(%s)" format (tableName, value)) {
       val request = (new PutItemRequest()
         .withTableName(tableName)
-        .withItem(itemMapper.apply(value))
+        .withItem(itemMapper.apply(value).asJava)
       )
       val response = dynamoDB.putItem(request)
     }
@@ -79,8 +79,8 @@ trait TableOperations[K,  V] { self: Table[V] =>
     retryPolicy.retry("Table(%s).update(%s)" format (tableName, key)) {
       val request = (new UpdateItemRequest()
         .withTableName(tableName)
-        .withKey(toKey(key))
-        .withAttributeUpdates(attributeUpdates))
+        .withKey(toKey(key).asJava)
+        .withAttributeUpdates(attributeUpdates.asJava))
       dynamoDB.updateItem(request)
     }
   }
@@ -89,11 +89,11 @@ trait TableOperations[K,  V] { self: Table[V] =>
     retryPolicy.retry("Table(%s).update(%s)" format (tableName, key)) {
       val request = (new UpdateItemRequest()
         .withTableName(tableName)
-        .withKey(toKey(key))
-        .withAttributeUpdates(attributeUpdates))
+        .withKey(toKey(key).asJava)
+        .withAttributeUpdates(attributeUpdates.asJava))
         .withReturnValues(returnValue)
       val response = dynamoDB.updateItem(request)
-      response.getAttributes
+      response.getAttributes.asScala
     }
   }
 
@@ -108,7 +108,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
   ): Iterator[V] = {
     val request = new ScanRequest().withTableName(tableName).withTotalSegments(totalSegments).withSegment(segment)
 
-    if (filter.nonEmpty) request.setScanFilter(filter)
+    if (filter.nonEmpty) request.setScanFilter(filter.asJava)
 
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
     else request.setLimit(1000)
@@ -132,7 +132,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
   ): Iterator[V] = {
     val request = new ScanRequest().withTableName(tableName)
 
-    if (filter.nonEmpty) request.setScanFilter(filter)
+    if (filter.nonEmpty) request.setScanFilter(filter.asJava)
 
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
     else request.setLimit(1000)
@@ -158,9 +158,9 @@ trait TableOperations[K,  V] { self: Table[V] =>
   ): Iterator[T] = {
     val request = (new ScanRequest()
       .withTableName(tableName)
-      .withAttributesToGet(attributesToGet))
+      .withAttributesToGet(attributesToGet.asJava))
 
-    if (filter.nonEmpty) request.setScanFilter(filter)
+    if (filter.nonEmpty) request.setScanFilter(filter.asJava)
 
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
     else request.setLimit(1000)
@@ -186,14 +186,33 @@ trait TableOperations[K,  V] { self: Table[V] =>
       .withConsistentRead(consistency.isConsistentRead)
     )
     val request = (new BatchGetItemRequest()
-      .withRequestItems(mutable.Map(tableName -> keysAndAttributes))
+      .withRequestItems(mutable.Map(tableName -> keysAndAttributes).asJava)
     )
 
     def nextPage(remainingKeys: Option[java.util.List[java.util.Map[String, AttributeValue]]]) = {
       if (remainingKeys.isDefined) keysAndAttributes.setKeys(remainingKeys.get)
       val response = dynamoDB.batchGetItem(request)
       val unprocessedKeys = Option(response.getUnprocessedKeys) flatMap (m => Option(m.get(tableName)))
-      (response.getResponses.get(tableName), unprocessedKeys map (_.getKeys) orNull)
+      // Work around an AWS bug that does not return the correct attribute names in the list of unprocessed keys.
+      val recoveredKeys = unprocessedKeys map { unprocessedKeys =>
+        val (hashKeyName, rangeKeyName) = schema match {
+          case KeySchema.HashKeySchema(hash) => hash.name -> None
+          case s: KeySchema.HashAndRangeKeySchema[_, _] => s.hashKeyAttribute.name -> Some(s.rangeKeyAttribute.name)
+        }
+        unprocessedKeys.getKeys.asScala map { key =>
+          key.asScala collect {
+            case (name, value) if name == "HashKeyElement" =>
+              println(s"""AWS returned "HashKeyElement" as a key attribute name instead of "$hashKeyName"""")
+              hashKeyName -> value
+            case (name, value) if rangeKeyName.nonEmpty && name == "RangeKeyElement" =>
+              rangeKeyName.get -> value
+            case entry =>
+              entry
+          } asJava
+        }
+      }
+      // End AWS workaround.
+      (response.getResponses.get(tableName), recoveredKeys map { _ asJava } orNull)
     }
 
     new Iterator[V] {
@@ -226,21 +245,21 @@ trait TableOperations[K,  V] { self: Table[V] =>
   def writeAll(operations: Iterator[WriteOperation[K, V]]): WriteSequence = {
     if (operations.isEmpty)
       return WriteSequence.empty
-    val requests = new java.util.ArrayList[WriteRequest]()
+    val requests: java.util.List[WriteRequest] = new java.util.ArrayList[WriteRequest]()
     val request = (new BatchWriteItemRequest()
-      .withRequestItems(mutable.Map(tableName -> requests))
+      .withRequestItems(mutable.Map(tableName -> requests).asJava)
     )
 
-    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: Iterator[WriteOperation[K, V]]) = {
+    def nextSubmission(unprocessed: java.util.List[WriteRequest], remaining: IndexedSeq[WriteOperation[K, V]]) = {
       val toAppend = remaining.take(25 - unprocessed.size).collect {
         case WriteOperation.Put(value) =>
-          new WriteRequest().withPutRequest(new PutRequest().withItem(itemMapper(value)))
+          new WriteRequest().withPutRequest(new PutRequest().withItem(itemMapper(value).asJava))
         case WriteOperation.Delete(key) =>
-          new WriteRequest().withDeleteRequest(new DeleteRequest().withKey(toKey(key)))
+          new WriteRequest().withDeleteRequest(new DeleteRequest().withKey(toKey(key).asJava))
       }.toSeq
       requests.clear()
       requests.addAll(unprocessed)
-      requests.addAll(toAppend)
+      requests.addAll(toAppend.asJava)
       val response = retryPolicy.retry("Table(%s).writeAll" format tableName) {
         dynamoDB.batchWriteItem(request)
       }
@@ -253,7 +272,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
     new WriteSequence {
 
-      private var pending = operations
+      private var pending: IndexedSeq[WriteOperation[K,V]] = operations.toIndexedSeq
       private var unprocessed = java.util.Collections.emptyList[WriteRequest]()
       var completedOperations = 0
       override def hasRemainingOperations = pending.nonEmpty || !unprocessed.isEmpty
@@ -287,7 +306,7 @@ trait TableOperations[K,  V] { self: Table[V] =>
       if (!hasNext) throw new IllegalStateException("hasNext is false")
       val item = items.get(index)
       index += 1
-      item
+      item.asScala
     }
 
     private def loadNextPage() = {
@@ -340,8 +359,8 @@ trait TableOperations[K,  V] { self: Table[V] =>
 
     val request = (new CreateTableRequest()
       .withTableName(tableName)
-      .withKeySchema(schema.keySchema)
-      .withAttributeDefinitions(schema.attributeDefinitions)
+      .withKeySchema(schema.keySchema.asJava)
+      .withAttributeDefinitions(schema.attributeDefinitions.asJava)
       .withProvisionedThroughput(provisionedThroughput)
     )
     dynamoDB.createTable(request)
@@ -359,9 +378,33 @@ trait TableOperations[K,  V] { self: Table[V] =>
     dynamoDB.updateTable(request)
   }
 
+  def createOrUpdateTable(readCapacity: Long, writeCapacity: Long) = {
+    def isDifferentThroughput(description: TableDescription[_]): Boolean = {
+      description.provisionedThroughput.readCapacityUnits != readCapacity ||
+        description.provisionedThroughput.writeCapacityUnits != writeCapacity
+    }
+    describeTable() match {
+      case Some(description) => if (isDifferentThroughput(description)) updateTable(readCapacity, writeCapacity)
+      case None => createTable(readCapacity, writeCapacity)
+    }
+  }
+
   def deleteTable_!(): Unit = {
     val deleteTableRequest = new DeleteTableRequest().withTableName(tableName)
     dynamoDB.deleteTable(deleteTableRequest)
+  }
+
+  def isTableActive: Boolean = {
+    describeTable().map(d => d.tableStatus == TableStatus.Active).getOrElse(false)
+  }
+
+  def waitUntilTableActive(timeout: Duration, sleepBetweenChecks: Duration = 15 seconds): Boolean = {
+    val end = System.currentTimeMillis + timeout.toMillis
+    while (System.currentTimeMillis < end) {
+      if (isTableActive) return true
+      Thread.sleep(sleepBetweenChecks.toMillis)
+    }
+    false
   }
 }
 
@@ -393,7 +436,7 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
     }
     val request = (new QueryRequest()
       .withTableName(tableName)
-      .withKeyConditions(keyConditions)
+      .withKeyConditions(keyConditions.asJava)
       .withConsistentRead(consistency.isConsistentRead))
 
     if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
