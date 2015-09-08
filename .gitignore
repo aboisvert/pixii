@@ -1,7 +1,0 @@
-/target
-/tools
-/.idea
-*.iml
-/ivycache*
-/out
-build.properties
