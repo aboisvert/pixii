@@ -1,6 +1,7 @@
 package pixii
 
 import pixii.KeySchema._
+import pixii.iterators._
 
 import com.amazonaws.{AmazonClientException, AmazonServiceException}
 import com.amazonaws.services.dynamodbv2._
@@ -116,13 +117,13 @@ trait TableOperations[K,  V] { self: Table[V] =>
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
       val response = dynamoDB.scan(request)
-      (response.getItems, response.getLastEvaluatedKey)
+      (response, Option(response.getLastEvaluatedKey))
     }
 
-    new Iterator[V] {
-      private val iter = iterator("scan", nextPage)
-      override def hasNext = iter.hasNext
-      override def next: V = itemMapper.unapply(iter.next)
+    new PagingIterator("scan", nextPage, retryPolicy) flatMap { response =>
+      response.getItems.asScala
+    } map { item =>
+      itemMapper.unapply(item.asScala)
     }
   }
 
@@ -140,13 +141,13 @@ trait TableOperations[K,  V] { self: Table[V] =>
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
       val response = dynamoDB.scan(request)
-      (response.getItems, response.getLastEvaluatedKey)
+      (response, Option(response.getLastEvaluatedKey))
     }
 
-    new Iterator[V] {
-      private val iter = iterator("scan", nextPage)
-      override def hasNext = iter.hasNext
-      override def next: V = itemMapper.unapply(iter.next)
+    new PagingIterator("scan", nextPage, retryPolicy) flatMap { response =>
+      response.getItems.asScala
+    } map { item =>
+      itemMapper.unapply(item.asScala)
     }
   }
 
@@ -168,13 +169,13 @@ trait TableOperations[K,  V] { self: Table[V] =>
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
       val response = dynamoDB.scan(request)
-      (response.getItems, response.getLastEvaluatedKey)
+      (response, Option(response.getLastEvaluatedKey))
     }
 
-    new Iterator[T] {
-      private val iter = iterator("scanSelectedAttributes", nextPage)
-      override def hasNext = iter.hasNext
-      override def next = itemMapper.apply(iter.next)
+    new PagingIterator("scanSelectedAttributes", nextPage, retryPolicy) flatMap { response =>
+      response.getItems.asScala
+    } map { item =>
+      itemMapper.apply(item.asScala)
     }
   }
 
@@ -212,13 +213,13 @@ trait TableOperations[K,  V] { self: Table[V] =>
         }
       }
       // End AWS workaround.
-      (response.getResponses.get(tableName), recoveredKeys map { _ asJava } orNull)
+      (response, Option(recoveredKeys map { _ asJava } orNull))
     }
 
-    new Iterator[V] {
-      private val iter = iterator("getAll", nextPage)
-      override def hasNext = iter.hasNext
-      override def next: V = itemMapper.unapply(iter.next)
+    new PagingIterator("getAll", nextPage, retryPolicy) flatMap { response =>
+      response.getResponses.get(tableName).asScala
+    } map { item =>
+      itemMapper.unapply(item.asScala)
     }
   }
 
@@ -285,40 +286,6 @@ trait TableOperations[K,  V] { self: Table[V] =>
         written
       }
 
-    }
-  }
-
-  protected def iterator[T](
-    operationName: String,
-    nextPage: Option[T] => (java.util.List[java.util.Map[String, AttributeValue]], T)
-  ): Iterator[Map[String, AttributeValue]] = new Iterator[Map[String, AttributeValue]] {
-    private var index = 0
-    private var items: java.util.List[java.util.Map[String, AttributeValue]] = null
-    private var morePages = true
-    private var exclusiveStartKey: Option[T] = None
-
-    override def hasNext = synchronized {
-      if ((items == null || index >= items.size) && morePages) loadNextPage()
-      (items != null && index < items.size)
-    }
-
-    override def next(): Map[String, AttributeValue] = synchronized {
-      if (!hasNext) throw new IllegalStateException("hasNext is false")
-      val item = items.get(index)
-      index += 1
-      item.asScala
-    }
-
-    private def loadNextPage() = {
-      retryPolicy.retry(operationName) {
-        val (nextItems, nextExclusiveStartKey) = nextPage(exclusiveStartKey)
-        if (nextExclusiveStartKey == null) {
-          morePages = false
-        }
-        exclusiveStartKey = Some(nextExclusiveStartKey)
-        items = nextItems
-        index = 0
-      }
     }
   }
 
@@ -445,13 +412,13 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
       val response = dynamoDB.query(request)
-      (response.getItems, response.getLastEvaluatedKey)
+      (response, Option(response.getLastEvaluatedKey))
     }
 
-    new Iterator[V] {
-      private val iter = iterator("query: " + hashKeyValue, nextPage)
-      override def hasNext = iter.hasNext
-      override def next: V = itemMapper.unapply(iter.next)
+    new PagingIterator("query", nextPage, retryPolicy) flatMap { response =>
+      response.getItems.asScala
+    } map { item =>
+      itemMapper.unapply(item.asScala)
     }
   }
 }
