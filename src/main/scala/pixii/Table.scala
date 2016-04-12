@@ -98,21 +98,14 @@ trait TableOperations[K,  V] { self: Table[V] =>
     }
   }
 
-  // TODO:  queryCount()
-  // TODO:  scanCount()
-
   def parallelScan(
       segment: Int,
       totalSegments: Int,
       filter: Map[String, Condition],
       evaluateItemPageLimit: Int
   ): Iterator[V] = {
-    val request = new ScanRequest().withTableName(tableName).withTotalSegments(totalSegments).withSegment(segment)
-
-    if (filter.nonEmpty) request.setScanFilter(filter.asJava)
-
-    if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
-    else request.setLimit(1000)
+    val limit = if (evaluateItemPageLimit != -1) evaluateItemPageLimit else 1000
+    val request = scanRequest(filter, limit).withTotalSegments(totalSegments).withSegment(segment)
 
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
@@ -131,12 +124,8 @@ trait TableOperations[K,  V] { self: Table[V] =>
     filter: Map[String, Condition] = Map.empty,
     evaluateItemPageLimit: Int = -1
   ): Iterator[V] = {
-    val request = new ScanRequest().withTableName(tableName)
-
-    if (filter.nonEmpty) request.setScanFilter(filter.asJava)
-
-    if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
-    else request.setLimit(1000)
+    val limit = if (evaluateItemPageLimit != -1) evaluateItemPageLimit else 1000
+    val request = scanRequest(filter, limit)
 
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
@@ -149,6 +138,26 @@ trait TableOperations[K,  V] { self: Table[V] =>
     } map { item =>
       itemMapper.unapply(item.asScala)
     }
+  }
+
+  def scanCount(
+    filter: Map[String, Condition] = Map.empty,
+    evaluateItemPageLimit: Int = -1
+  ): Long = {
+    val limit = if (evaluateItemPageLimit != -1) evaluateItemPageLimit else 1000
+    val request = scanRequest(filter, limit).withSelect(Select.COUNT)
+
+    def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
+      if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
+      val response = dynamoDB.scan(request)
+      (response, Option(response.getLastEvaluatedKey))
+    }
+
+    val countIterator = new PagingIterator("scanCount", nextPage, retryPolicy) map { response =>
+      response.getCount.toLong
+    }
+
+    countIterator.sum
   }
 
   def scanSelectedAttributes[T](
@@ -373,6 +382,18 @@ trait TableOperations[K,  V] { self: Table[V] =>
     }
     false
   }
+
+  private def scanRequest(
+      filter: Map[String, Condition],
+      evaluateItemPageLimit: Int
+  ): ScanRequest = {
+    new ScanRequest() {
+      withTableName(tableName)
+      withScanFilter(filter.asJava)
+      withLimit(evaluateItemPageLimit)
+    }
+  }
+
 }
 
 trait HashKeyTable[H, V] extends TableOperations[H, V] { self: Table[V] =>
@@ -394,20 +415,8 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
     rangeKeyCondition: Condition = null,
     evaluateItemPageLimit: Int = -1
   )(implicit consistency: Consistency): Iterator[V] = {
-    val keyConditions = mutable.Map[String, Condition]()
-    keyConditions(hashKeyAttribute.name) = new Condition()
-      .withAttributeValueList(hashKeyAttribute(hashKeyValue).valuesIterator.next())
-      .withComparisonOperator(ComparisonOperator.EQ)
-    if (rangeKeyCondition != null) {
-      keyConditions(rangeKeyAttribute.name) = rangeKeyCondition
-    }
-    val request = (new QueryRequest()
-      .withTableName(tableName)
-      .withKeyConditions(keyConditions.asJava)
-      .withConsistentRead(consistency.isConsistentRead))
-
-    if (evaluateItemPageLimit != -1) request.setLimit(evaluateItemPageLimit)
-    else request.setLimit(1000)
+    val limit = if (evaluateItemPageLimit != -1) evaluateItemPageLimit else 1000
+    val request = queryRequest(hashKeyValue, Option(rangeKeyCondition), limit, consistency)
 
     def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
       if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
@@ -420,6 +429,50 @@ trait HashAndRangeKeyTable[H, R, V] extends TableOperations[(H, R), V] { self: T
     } map { item =>
       itemMapper.unapply(item.asScala)
     }
+  }
+
+  def queryCount(
+    hashKeyValue: H,
+    rangeKeyCondition: Condition = null,
+    evaluateItemPageLimit: Int = -1
+  )(implicit consistency: Consistency): Long = {
+    val limit = if (evaluateItemPageLimit != -1) evaluateItemPageLimit else 1000
+    val request = queryRequest(hashKeyValue, Option(rangeKeyCondition), limit, consistency).withSelect(Select.COUNT)
+
+    def nextPage(exclusiveStartKey: Option[java.util.Map[String, AttributeValue]]) = {
+      if (exclusiveStartKey.isDefined) request.setExclusiveStartKey(exclusiveStartKey.get)
+      val response = dynamoDB.query(request)
+      (response, Option(response.getLastEvaluatedKey))
+    }
+
+    val countIterator = new PagingIterator("queryCount", nextPage, retryPolicy) map { response =>
+      response.getCount.toLong
+    }
+
+    countIterator.sum
+  }
+
+  private def queryRequest(
+      hashKeyValue: H,
+      rangeKeyCondition: Option[Condition],
+      evaluateItemPageLimit: Int,
+      consistency: Consistency
+  ): QueryRequest = {
+    val keyConditions = mutable.Map[String, Condition]()
+
+    keyConditions(hashKeyAttribute.name) = new Condition()
+      .withAttributeValueList(hashKeyAttribute(hashKeyValue).valuesIterator.next())
+      .withComparisonOperator(ComparisonOperator.EQ)
+
+    rangeKeyCondition foreach { condition =>
+      keyConditions(rangeKeyAttribute.name) = condition
+    }
+
+    new QueryRequest()
+      .withTableName(tableName)
+      .withKeyConditions(keyConditions.asJava)
+      .withConsistentRead(consistency.isConsistentRead)
+      .withLimit(evaluateItemPageLimit)
   }
 }
 
